@@ -330,18 +330,6 @@ jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (moduleName
   return tests;
 };
 
-//Go through jsh.Modules paths, and for each folder, parse the tests in test_spec_path
-//Prepend folder path to SCREENSHOT_NAME: screenshots/*FOLDER_PATH*/TEST.json
-jsHarmonyTestScreenshot.prototype.includeJsHarmonyModuleTests = async function() {
-  var _this = this;
-  _.forEach(_this.jsh.Modules, async function(module) {
-    if (module.Config.moduledir) {
-      let fpath = path.resolve(path.join(module.Config.moduledir, _this.test_spec_path));
-      _this.settings.additionalTestSearchPaths.push({group: module.name, path: fpath});
-    }
-  });
-};
-
 //Parse a string and return a jsHarmonyTestScreenshotSpec object
 //  Parameters:
 //    fpath: The full path to the config file
