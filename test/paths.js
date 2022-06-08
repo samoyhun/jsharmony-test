@@ -80,6 +80,12 @@ describe('path configuration', function() {
         assert.equal(test.test_spec_path, path.resolve('.'));
         assert.equal(test.test_data_path, path.resolve('data\\jsharmony-test\\screenshots'));
       });
+      it('test folder path', function() {
+        var api = new jsHarmonyTestAPI({testFolderPath: 'test/path'});
+        var test = api.jsHarmonyTestScreenshot({});
+        assert.equal(test.test_spec_path, path.resolve('test\\path'));
+        assert.equal(test.test_data_path, path.resolve('test\\path\\data\\jsharmony-test\\screenshots'));
+      });
       it('config with both', function() {
         var api = new jsHarmonyTestAPI({configPath: 'test/config/_paths.json'});
         var test = api.jsHarmonyTestScreenshot({});

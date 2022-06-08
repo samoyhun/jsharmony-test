@@ -31,7 +31,7 @@ var HelperFS = require('jsharmony/HelperFS');
 //    _test_spec_path:   Path to the test screenshots tests folder
 //    _test_data_path:   Path to the test screenshots data folder
 function jsHarmonyTestScreenshot(_jsh, settings, _test_spec_path, _test_data_path) {
-  
+
   this.jsh = _jsh;
   if(_jsh) this.platform = _jsh;
   else{

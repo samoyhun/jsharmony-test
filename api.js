@@ -24,7 +24,7 @@ var async = require('async');
 function jsHarmonyTestAPI(options){
   this.silent = options.silent;
   this.show_browser = options.show_browser;
-  var testFolderPath = path.resolve(options.testFolderPath || process.cwd());
+  var testFolderPath = this.testFolderPath = path.resolve(options.testFolderPath || process.cwd());
   //Load Config
   var jsh = this.jsh = new jsHarmonyTest.Application();
   jsh.Config.silentStart = true;
@@ -77,7 +77,7 @@ jsHarmonyTestAPI.prototype.recorder = function(options, cb){
 };
 
 jsHarmonyTestAPI.prototype.jsHarmonyTestScreenshot = function(settings){
-  var curtest = new (require('./jsHarmonyTestScreenshot'))(this.jsh, settings, '', path.join(this.jsh.Config.datadir, 'jsharmony-test/screenshots'));
+  var curtest = new (require('./jsHarmonyTestScreenshot'))(this.jsh, settings, this.testFolderPath, path.join(this.jsh.Config.datadir, 'jsharmony-test/screenshots'));
   curtest.show_browser = this.show_browser;
   return curtest;
 };
