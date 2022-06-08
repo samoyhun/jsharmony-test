@@ -122,7 +122,8 @@ jsHarmonyTestLocalServer.prototype.tryConnect = function(args, endTime, cb) {
     if(completed) return;
     completed = true;
     socket.end();
-    cb();
+    if (cb) cb();
+    cb = null;
   });
   socket.on('error', function(err) {
     if(completed) return;
@@ -139,7 +140,7 @@ jsHarmonyTestLocalServer.prototype.tryConnect = function(args, endTime, cb) {
         }
       }
       _this.jsh.Log.error(errmsg);
-      cb(err);
+      if (cb) cb(err);
     }
   });
 };

@@ -28,9 +28,9 @@ var HelperFS = require('jsharmony/HelperFS');
 //  Parameters:
 //    jsh: The jsHarmony Server object
 //    settings: settings object, e.g. jsHarmonyTestConfig
-//    _test_config_path: Path to the test screenshots config folder
+//    _test_spec_path:   Path to the test screenshots tests folder
 //    _test_data_path:   Path to the test screenshots data folder
-function jsHarmonyTestScreenshot(_jsh, settings, _test_config_path, _test_data_path) {
+function jsHarmonyTestScreenshot(_jsh, settings, _test_spec_path, _test_data_path) {
   
   this.jsh = _jsh;
   if(_jsh) this.platform = _jsh;
@@ -49,12 +49,12 @@ function jsHarmonyTestScreenshot(_jsh, settings, _test_config_path, _test_data_p
   }
 
   var data_folder = 'data';
-  var default_test_config_path = path.join('test', 'screenshots');
-  var default_test_data_config_path = path.join(data_folder, 'jsharmony-test/screenshots');
+  var default_test_spec_path = '';
+  var default_test_data_path = path.join(data_folder, 'jsharmony-test/screenshots');
 
   this.browser = null;
-  this.test_config_path = path.normalize(((_.isEmpty(_test_config_path)) ? default_test_config_path : _test_config_path));
-  this.test_data_path = path.normalize(((_.isEmpty(_test_data_path)) ? default_test_data_config_path : _test_data_path));
+  this.test_spec_path = path.resolve(((_.isEmpty(_test_spec_path)) ? default_test_spec_path : _test_spec_path));
+  this.test_data_path = path.resolve(((_.isEmpty(_test_data_path)) ? default_test_data_path : _test_data_path));
 
   this.master_dir = 'master';
   this.comparison_dir = 'comparison';
@@ -150,7 +150,8 @@ jsHarmonyTestScreenshot.prototype.generateMaster = async function (cb) {
 
   let review_file = this.reviewFilePath();
   if (fs.existsSync(review_file)) fs.unlinkSync(review_file);
-  HelperFS.rmdirRecursiveSync(master_dir);
+  console.log("TODO skip delete", master_dir);
+  //HelperFS.rmdirRecursiveSync(master_dir);
   HelperFS.createFolderRecursiveSync(master_dir);
   let tests = await this.loadTests();
   await this.generateScreenshots(tests, master_dir);
@@ -180,7 +181,8 @@ jsHarmonyTestScreenshot.prototype.generateComparison = async function (cb) {
 
   let comparison_dir = this.screenshotsComparisonDir();
 
-  HelperFS.rmdirRecursiveSync(comparison_dir);
+  console.log("TODO skip delete", comparison_dir);
+  //HelperFS.rmdirRecursiveSync(comparison_dir);
   HelperFS.createFolderRecursiveSync(comparison_dir);
   let tests = await this.loadTests();
   await this.generateScreenshots(tests, comparison_dir);
@@ -241,7 +243,8 @@ jsHarmonyTestScreenshot.prototype.runComparison = async function (cb) {
   let result_file = _this.resultFilePath();
   if (fs.existsSync(result_file)) fs.unlinkSync(result_file);
   let diff_dir = _this.screenshotsDiffDir();
-  HelperFS.rmdirRecursiveSync(diff_dir);
+  console.log("TODO skip delete", diff_dir);
+  //HelperFS.rmdirRecursiveSync(diff_dir);
   HelperFS.createFolderRecursiveSync(diff_dir);
   var testError = null;
   try {
@@ -264,7 +267,7 @@ jsHarmonyTestScreenshot.prototype.runComparison = async function (cb) {
   });
 };
 
-//Read the test_config_path folder, and parse the tests
+//Read the test_spec_path folder, and parse the tests
 //  Parameters:
 //    cb - The callback function to be called on completion
 //Returns an associative array of jsHarmonyTestScreenshotSpec:
@@ -279,7 +282,7 @@ jsHarmonyTestScreenshot.prototype.loadTests = async function (cb) {
   // some application modules define moduledir, some don't.
   //  If they don't, we need to scan our local path
   //  If they do, we need to be careful not to load them twice
-  let local_path = path.resolve(_this.test_config_path);
+  let local_path = path.resolve(_this.test_spec_path);
   await _this.loadTestsInFolder('', local_path, tests);
 
   _.forEach(_this.settings.additionalTestSearchPaths, async function(extra) {
@@ -327,13 +330,13 @@ jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (moduleName
   return tests;
 };
 
-//Go through jsh.Modules paths, and for each folder, parse the tests in test_config_path
+//Go through jsh.Modules paths, and for each folder, parse the tests in test_spec_path
 //Prepend folder path to SCREENSHOT_NAME: screenshots/*FOLDER_PATH*/TEST.json
 jsHarmonyTestScreenshot.prototype.includeJsHarmonyModuleTests = async function() {
   var _this = this;
   _.forEach(_this.jsh.Modules, async function(module) {
     if (module.Config.moduledir) {
-      let fpath = path.resolve(path.join(module.Config.moduledir, _this.test_config_path));
+      let fpath = path.resolve(path.join(module.Config.moduledir, _this.test_spec_path));
       _this.settings.additionalTestSearchPaths.push({group: module.name, path: fpath});
     }
   });
