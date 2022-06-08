@@ -150,9 +150,7 @@ jsHarmonyTestScreenshot.prototype.generateMaster = async function (cb) {
 
   let review_file = this.reviewFilePath();
   if (fs.existsSync(review_file)) fs.unlinkSync(review_file);
-  console.log("TODO skip delete", master_dir);
-  //HelperFS.rmdirRecursiveSync(master_dir);
-  HelperFS.createFolderRecursiveSync(master_dir);
+  this.recreateDirectory(master_dir);
   let tests = await this.loadTests();
   await this.generateScreenshots(tests, master_dir);
 
@@ -181,9 +179,7 @@ jsHarmonyTestScreenshot.prototype.generateComparison = async function (cb) {
 
   let comparison_dir = this.screenshotsComparisonDir();
 
-  console.log("TODO skip delete", comparison_dir);
-  //HelperFS.rmdirRecursiveSync(comparison_dir);
-  HelperFS.createFolderRecursiveSync(comparison_dir);
+  this.recreateDirectory(comparison_dir);
   let tests = await this.loadTests();
   await this.generateScreenshots(tests, comparison_dir);
 
@@ -243,9 +239,7 @@ jsHarmonyTestScreenshot.prototype.runComparison = async function (cb) {
   let result_file = _this.resultFilePath();
   if (fs.existsSync(result_file)) fs.unlinkSync(result_file);
   let diff_dir = _this.screenshotsDiffDir();
-  console.log("TODO skip delete", diff_dir);
-  //HelperFS.rmdirRecursiveSync(diff_dir);
-  HelperFS.createFolderRecursiveSync(diff_dir);
+  this.recreateDirectory(diff_dir);
   var testError = null;
   try {
     await this.generateComparison();
@@ -427,8 +421,8 @@ jsHarmonyTestScreenshot.prototype.compareImages = function (cb) {
   let files = [];
   let files_comp = [];
   try {
-    files = fs.readdirSync(path_master);
-    files_comp = fs.readdirSync(path_comparison);
+    files = _.without(fs.readdirSync(path_master), '.jsharmony-created');
+    files_comp = _.without(fs.readdirSync(path_comparison), '.jsharmony-created');
   }
   catch(ex){
     if(ex && ex.code=='ENOENT'){ /* Do nothing */ }
@@ -649,6 +643,23 @@ jsHarmonyTestScreenshot.prototype.sendErrorEmail = function (diff, errText, cb) 
     _this.isSendingEmail = false;
     if(cb) cb(null, diff.length);
   });
+};
+
+// cli can be run from arbitrary directories, and we are normalizing the use of .. in configurations. So be a bit paranoid about directory deletes.
+jsHarmonyTestScreenshot.prototype.recreateDirectory = function(targetPath) {
+  var tagFile = path.join(targetPath, '.jsharmony-created');
+  if(fs.existsSync(targetPath)) {
+    if(fs.existsSync(tagFile)) {
+      HelperFS.rmdirRecursiveSync(targetPath);
+      HelperFS.createFolderRecursiveSync(targetPath);
+      fs.writeFileSync(tagFile, '');
+    } else {
+      this.warning('not removing "' + targetPath + '" because it doesn\'t have a ".jsharmony-created" file in it. Please remove the directory yourself and rerun the command to create a clean test run');
+    }
+  } else {
+    HelperFS.createFolderRecursiveSync(targetPath);
+    fs.writeFileSync(tagFile, '');
+  }
 };
 
 exports = module.exports = jsHarmonyTestScreenshot;
