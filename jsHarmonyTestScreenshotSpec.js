@@ -21,10 +21,10 @@ var _ = require('lodash');
 var async = require('async');
 
 //  Parameters:
-//    _test: The parent jsHarmonyTestScreenshot object
+//    _base_url: server address the test will run against
 //    _id: id of screenshot (eventual base for filename)
-function jsHarmonyTestScreenshotSpec(_test,_id){
-  this.base_url = _test.settings.server;
+function jsHarmonyTestScreenshotSpec(_base_url,_id){
+  this.base_url = _base_url;
   this.id = _id;       //id of screenshot (eventual base for filename)
   this.sourcePath; // path to the file that defined the test
   this.sourceName; // key of the test within the sourcePath
@@ -137,12 +137,12 @@ const generateHoverDiv = function(dimensions){
 //Parse a JSON object and return a jsHarmonyTestScreenshotSpec object
 //  Ensure the spec is correct and has no extra fields
 //  Parameters:
-//    test: The parent jsHarmonyTestScreenshot object
+//    base_url: target server address
 //    id: id of screenshot (eventual base for filename)
 //    obj: The JSON object
 //Returns a jsHarmonyTestScreenshotSpec object
-jsHarmonyTestScreenshotSpec.fromJSON = function(test, id, obj){
-  let jsTS = new jsHarmonyTestScreenshotSpec(test, id);
+jsHarmonyTestScreenshotSpec.fromJSON = function(base_url, id, obj){
+  let jsTS = new jsHarmonyTestScreenshotSpec(base_url, id);
   let warnings = [];
   _.forEach(_.keys(obj), function(key) {
     if (!(key in allowedProperties)) {
@@ -156,7 +156,7 @@ jsHarmonyTestScreenshotSpec.fromJSON = function(test, id, obj){
   } else {
     warnings.push('No url defined for test ' + id);
   }
-  const conf = _.extend({importWarnings: warnings},test.settings.base_screenshot,obj);
+  const conf = _.extend({importWarnings: warnings},obj);
   _.assign(jsTS,conf);
   return jsTS;
 };
@@ -176,9 +176,6 @@ jsHarmonyTestScreenshotSpec.prototype.generateFilename = function(){
 //    jsh: jsharmony, used for image processing, and beforeScreenshot, which can do... anything
 //    fpath: The full path to the destination file
 //    cb: The callback function to be called on completion
-//If this.test.config.server is undefined, use the following logic to get the server path:
-//var port = jsh.Config.server.http_port;
-//if(jsh.Servers['default'] && jsh.Servers['default'].servers && jsh.Servers['default'].servers.length) port = jsh.Servers['default'].servers[0].address().port;
 jsHarmonyTestScreenshotSpec.prototype.generateScreenshot = async function (browser, jsh, fpath, cb) {
   if (!browser) {
     if (cb) return cb(new Error('no browser available, Please configure jsh.Extensions.report'));

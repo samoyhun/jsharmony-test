@@ -100,13 +100,8 @@ describe('path configuration', function() {
       var jsh = new jsHarmonyTest.Application();
       jsh.Config.silentStart = true;
       jsh.Config.interactive = true;
-      jsh.Config.onConfigLoaded.push(function(cb){
-        jsh.Config.system_settings.automatic_schema = false;
-        //jsh.Extensions.report = require('jsharmony-report');
-        //jsh.Extensions.image = require('jsharmony-image-magick');
-        return cb();
-      });
-    
+      jsh.Config.system_settings.automatic_schema = false;
+
       var appbasepath = 'test/app';
       var datadir = path.join(appbasepath, 'data');
     

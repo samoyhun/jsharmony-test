@@ -30,6 +30,9 @@ var HelperFS = require('jsharmony/HelperFS');
 //    settings: settings object, e.g. jsHarmonyTestConfig
 //    _test_spec_path:   Path to the test screenshots tests folder
 //    _test_data_path:   Path to the test screenshots data folder
+//If this.test.config.server is undefined, use the following logic to get the server path:
+//var port = jsh.Config.server.http_port;
+//if(jsh.Servers['default'] && jsh.Servers['default'].servers && jsh.Servers['default'].servers.length) port = jsh.Servers['default'].servers[0].address().port;
 function jsHarmonyTestScreenshot(_jsh, settings, _test_spec_path, _test_data_path) {
 
   this.jsh = _jsh;
@@ -272,21 +275,23 @@ jsHarmonyTestScreenshot.prototype.runComparison = async function (cb) {
 //Sort tests by test.batch, then by test.id.  Undefined batch should run last
 jsHarmonyTestScreenshot.prototype.loadTests = async function (cb) {
   let _this = this;
-  let tests = [];
+  let testChunks = [];
   // some application modules define moduledir, some don't.
   //  If they don't, we need to scan our local path
   //  If they do, we need to be careful not to load them twice
   let local_path = path.resolve(_this.test_spec_path);
-  await _this.loadTestsInFolder('', local_path, tests);
+  testChunks.push(await _this.loadTestsInFolder('', local_path, _this.settings));
 
   _.forEach(_this.settings.additionalTestSearchPaths, async function(extra) {
     if (extra.path) {
       let fpath = path.resolve(extra.path);
       if (fpath != local_path) {
-        await _this.loadTestsInFolder(extra.group, fpath, tests);
+        testChunks.push(await _this.loadTestsInFolder(extra.group, fpath, _this.settings));
       }
     }
   });
+
+  var tests = _.flatten(testChunks);
 
   if (tests.length < 1) {
     _this.warning('No tests defined. Place test JSON files in ' + local_path);
@@ -302,44 +307,77 @@ jsHarmonyTestScreenshot.prototype.loadTests = async function (cb) {
   else return tests;
 };
 
-jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (moduleName, folderPath, tests) {
-  let _this = this;
-  let testOnly = this.settings.testOnly || [];
+async function exists(filepath) {
   try {
-    await new Promise((resolve,reject) => {
-      HelperFS.funcRecursive(folderPath, function(fullpath, fname, file_cb){
-        if (fname.startsWith('_')) return file_cb();
-        if (fname.substring(fname.length-5) !== '.json') return file_cb();
-        if (testOnly.length > 0 && testOnly.indexOf(fname) == -1) return file_cb();
-        let test_group = getTestsGroupName(moduleName,fname);
-        _this.parseTests(fullpath, test_group, tests, file_cb);
-      },undefined,undefined,function(err) {
-        if (err) return reject(err);
-        resolve();
+    await fs.promises.access(filepath);
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (moduleName, folderPath, parentSettings) {
+  let _this = this;
+  let testChunks = [];
+  let settings = parentSettings;
+  try {
+    let config = path.join(folderPath, '_config.json');
+    if (await exists(config)) {
+      await new Promise((resolve,reject) => {
+        _this.jsh.ParseJSON(config, 'jsHarmonyTest', 'Config file ' + config, function(err, conf) {
+          if (err) reject(err);
+          settings = _.extend({},parentSettings,conf);
+          resolve(conf);
+        });
       });
-    });
+    }
+    let testOnly = settings.testOnly || [];
+    var files = await fs.promises.readdir(folderPath);
+    await Promise.all(files.map(async function(fname) {
+      var fullpath = path.join(folderPath, fname);
+      var stats = await fs.promises.lstat(fullpath);
+      if (stats.isDirectory()) {
+        testChunks.push(await _this.loadTestsInFolder(moduleName, fullpath, settings));
+      } else {
+        if (fname.startsWith('_')) return;
+        if (fname.substring(fname.length-5) !== '.json') return;
+        if (testOnly.length > 0 && testOnly.indexOf(fname) == -1) return;
+        let test_group = getTestsGroupName(moduleName,fname);
+        await new Promise((resolve,reject) => {
+          _this.parseTests(fullpath, test_group, settings, function(err, newTests) {
+            testChunks.push(newTests);
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      }
+    }));
+    return _.flatten(testChunks);
   } catch (e) {
     _this.error(e);
   }
-  return tests;
+  return [];
 };
 
 //Parse a string and return a jsHarmonyTestScreenshotSpec object
 //  Parameters:
 //    fpath: The full path to the config file
 //    test_group: test id prefix
-//    file_test_specs: array to append jsHarmonyTestScreenshotSpec objects
+//    settings: resolved _config.json values
 //    cb - The callback function to be called on completion
 //Use jsh.ParseJSON to convert the string to JSON
-jsHarmonyTestScreenshot.prototype.parseTests = function(fpath, test_group, file_test_specs, cb){
+jsHarmonyTestScreenshot.prototype.parseTests = function(fpath, test_group, settings, cb){
   let _this = this;
-  let screenshotOnly = this.settings.screenshotOnly || [];
+  let screenshotOnly = settings.screenshotOnly || [];
   let warningCount = 0;
+  let file_test_specs = [];
   _this.jsh.ParseJSON(fpath, 'jsHarmonyTest', 'Screenshot Test ' + fpath, function(err, file_tests) {
     if (err) return cb(err);
     for (const file_test_id in file_tests) {
       if (screenshotOnly.length > 0 && screenshotOnly.indexOf(file_test_id) == -1) continue;
-      const testSpec = jsHarmonyTestSpec.fromJSON(_this, test_group + '_' + sanitizePath(file_test_id), file_tests[file_test_id]);
+      const id = test_group + '_' + sanitizePath(file_test_id);
+      const obj = _.extend({},settings.base_screenshot, file_tests[file_test_id]);
+      const testSpec = jsHarmonyTestSpec.fromJSON(settings.server, id, obj);
       testSpec.sourcePath = fpath;
       testSpec.sourceName = file_test_id;
       file_test_specs.push(testSpec);
