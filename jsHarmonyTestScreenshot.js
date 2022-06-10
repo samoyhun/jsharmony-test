@@ -189,7 +189,7 @@ jsHarmonyTestScreenshot.prototype.generateComparison = async function (cb) {
   if(errText) this.info('Errors occurred running tests\n'+errText);
 
   if (cb) return cb(new Error(errText));
-  throw new Error(errText);
+  if(errText) throw new Error(errText);
 };
 
 jsHarmonyTestScreenshot.prototype.getBrowser = async function () {
