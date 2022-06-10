@@ -1,0 +1,9 @@
+<% if(errText){ %>
+<%=errText%>
+<% } %>
+<% if(failImages.length){ %><%= failImages.length %> Differences<% for(var k in failImages){ %>
+Screenshot name: <%= failImages[k].image_file; %>
+  <% if (failImages[k].diff_type == 'MASTER_ONLY'){ %>Missing Comparison Image<% } else if (failImages[k].diff_type == 'COMPARISON_ONLY'){ %>Missing Master Image<% } else if (failImages[k].diff_type == 'IMAGE_DIFF'){ %>Images are not the same<% } else if (failImages[k].diff_type == 'ERROR'){ %><%= failImages[k].error %><% } %>
+<% } %><% } else if(!errText) {  %>
+  Tests completed successfully.
+<% } %>

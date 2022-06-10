@@ -1,0 +1,40 @@
+<style>
+  .comp{
+    width: 80%;
+    margin: 0 auto;
+    text-align: center;
+  }
+</style>
+<% if(errText){ %>
+  <h1 style="color:red;">Errors</h1>
+  <pre><%=errText%></pre>
+<% } %>
+<% if(failImages.length){ %>
+  <% for(var k in failImages){ %>
+    <div class="comp">
+      <h2>Screenshot name: <%= failImages[k].image_file; %></h2>
+      <% if (failImages[k].diff_type == 'MASTER_ONLY'){ %>
+        <b><span style="color: red;">Missing Comparison Image</span> </b><br>
+        <img src="<%=screenshots_source_dir%>/<%=failImages[k].image_file; %>"><br>
+      <% } else if (failImages[k].diff_type == 'COMPARISON_ONLY'){ %>
+        <b><span style="color: red;">Missing Master Image</span> </b><br>
+        <img src="<%=screenshots_generated_dir%>/<%=failImages[k].image_file; %>">
+      <% } else if (failImages[k].diff_type == 'IMAGE_DIFF'){ %>
+        <b><span style="color: red;">Images are not the same</span> </b><br>
+        <img src="<%=screenshots_source_dir%>/<%=failImages[k].image_file; %>"><br>
+        <h3>Regenerated image:</h3>
+        <img src="<%=screenshots_generated_dir%>/<%=failImages[k].image_file; %>">
+        <h3>Differences:</h3>
+        <img src="<%=screenshots_diff_dir%>/<%=failImages[k].diff_file; %>">
+      <% } else if (failImages[k].diff_type == 'ERROR'){ %>
+        <b><span style="color: red;"><%= failImages[k].error %></span> </b><br>
+        <img src="<%=screenshots_source_dir%>/<%=failImages[k].image_file; %>"><br>
+        <h3>Regenerated image:</h3>
+        <img src="<%=screenshots_generated_dir%>/<%=failImages[k].image_file; %>">
+      <% } %>
+      <hr>
+    </div>
+  <% } %>
+<% } else if(!errText) {  %>
+  <h1>Tests completed successfully.</h1>
+<% } %>

@@ -1,0 +1,23 @@
+<style>
+  .comp{
+    width: 80%;
+    margin: 0 auto;
+    text-align: center;
+  }
+</style>
+<% if(errText){ %>
+  <h1 style="color:red;">Errors</h1>
+  <pre><%=errText%></pre>
+<% } %>
+<% if(images.length){ %>
+  <h1>Screenshots</h1>
+  <% for(var k in images){ %>
+    <div class="comp">
+      <h2>Screenshot name: <%= images[k].image_file; %></h2>
+      <img src="<%=screenshots_source_dir%>/<%=images[k].image_file; %>"><br>
+      <hr>
+    </div>
+  <% } %>
+<% } else if(!errText) {  %>
+  <h1>No screenshots generated</h1>
+<% } %>
