@@ -17,9 +17,10 @@ You should have received a copy of the GNU Lesser General Public License
 along with this package.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-var jsHarmonyTestScreenshot = require('./jsHarmonyTestScreenshot.js');
+var jsHarmonyTestScreenshotSpec = require('./jsHarmonyTestScreenshotSpec.js');
 var _ = require('lodash');
 var async = require('async');
+var path = require('path');
 
 //  Parameters:
 //    _base_url: server address the test will run against
@@ -108,6 +109,7 @@ jsHarmonyTestSpec.prototype.runCommand = async function (command, page, jsh, scr
 
 jsHarmonyTestSpec.commands = [
   'navigate',
+  'screenshot',
 ];
 
 jsHarmonyTestSpec.prototype.command_navigate = async function(command, page, jsh, screenshotDir) {
@@ -120,6 +122,18 @@ jsHarmonyTestSpec.prototype.command_navigate = async function(command, page, jsh
   } else {
     return {errors: ['navigation failed ' + fullurl]};
   }
+};
+
+jsHarmonyTestSpec.prototype.command_screenshot = async function(command, page, jsh, screenshotDir) {
+  if (typeof(command.id) != 'string') return {errors: ['screenshot missing id']};
+  var screenshotSpec = jsHarmonyTestScreenshotSpec.fromJSON(command.id, command);
+  var fname = screenshotSpec.generateFilename();
+  var screenshotPath = path.join(screenshotDir, fname);
+  await screenshotSpec.generateScreenshot(page, jsh, screenshotPath);
+  return {
+    errors: screenshotSpec.testWarnings,
+    warnings: screenshotSpec.testErrors,
+  };
 };
 
 module.exports = exports = jsHarmonyTestSpec;
