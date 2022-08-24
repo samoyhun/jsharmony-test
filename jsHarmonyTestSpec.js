@@ -111,6 +111,7 @@ jsHarmonyTestSpec.commands = [
   'navigate',
   'screenshot',
   'input',
+  'click',
 ];
 
 jsHarmonyTestSpec.prototype.command_navigate = async function(command, page, jsh, screenshotDir) {
@@ -146,6 +147,19 @@ jsHarmonyTestSpec.prototype.command_input = async function(command, page, jsh, s
     // checkboxes
     // variables
     await page.type(command.element, command.value);
+  } catch(e) {
+    return {errors: [e]};
+  }
+  return {};
+};
+
+jsHarmonyTestSpec.prototype.command_click = async function(command, page, jsh, screenshotDir) {
+  if (typeof(command.element) != 'string') return {errors: ['click missing element']};
+  if (command.button && typeof(command.button) != 'string') return {errors: ['click button must be a string']};
+  var options = {};
+  if (command.button) options.button = command.button;
+  try {
+    await page.click(command.element, options);
   } catch(e) {
     return {errors: [e]};
   }
