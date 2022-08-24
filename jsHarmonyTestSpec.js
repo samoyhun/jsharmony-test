@@ -110,6 +110,7 @@ jsHarmonyTestSpec.prototype.runCommand = async function (command, page, jsh, scr
 jsHarmonyTestSpec.commands = [
   'navigate',
   'screenshot',
+  'input',
 ];
 
 jsHarmonyTestSpec.prototype.command_navigate = async function(command, page, jsh, screenshotDir) {
@@ -134,6 +135,21 @@ jsHarmonyTestSpec.prototype.command_screenshot = async function(command, page, j
     errors: screenshotSpec.testWarnings,
     warnings: screenshotSpec.testErrors,
   };
+};
+
+jsHarmonyTestSpec.prototype.command_input = async function(command, page, jsh, screenshotDir) {
+  if (typeof(command.element) != 'string') return {errors: ['input missing element']};
+  if (typeof(command.value) != 'string') return {errors: ['input missing value']};
+  try {
+    // TODO
+    // enter
+    // checkboxes
+    // variables
+    await page.type(command.element, command.value);
+  } catch(e) {
+    return {errors: [e]};
+  }
+  return {};
 };
 
 module.exports = exports = jsHarmonyTestSpec;
