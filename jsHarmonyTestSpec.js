@@ -68,6 +68,26 @@ jsHarmonyTestSpec.fromJSON = function(base_url, id, obj){
   return jsTS;
 };
 
+function textContainsString(element, text) {
+  return document.querySelector(element).textContent.includes(text);
+}
+
+var textSelectors = {
+  contains: function textContains(element, text) {
+    return document.querySelector(element).textContent.includes(text.contains);
+  }
+};
+
+function getTextSelector(text) {
+  if (!text) return;
+  if (typeof(text) == 'string') return textContainsString;
+  for (var sel in textSelectors) {
+    if (sel in text) {
+      return textSelectors[sel];
+    }
+  }
+}
+
 //Run the test commands
 //  Parameters:
 //    browser: A puppeteer Browser object
@@ -110,6 +130,7 @@ jsHarmonyTestSpec.prototype.runCommand = async function (command, page, jsh, scr
 jsHarmonyTestSpec.commands = [
   'navigate',
   'screenshot',
+  'wait',
   'input',
   'click',
 ];
@@ -136,6 +157,28 @@ jsHarmonyTestSpec.prototype.command_screenshot = async function(command, page, j
     errors: screenshotSpec.testWarnings,
     warnings: screenshotSpec.testErrors,
   };
+};
+
+jsHarmonyTestSpec.prototype.command_wait = async function(command, page, jsh, screenshotDir) {
+  if (command.element && typeof(command.element) != 'string') return {errors: ['wait element must be a string']};
+  if (command.text && !(typeof(command.text) == 'string' || typeof(command.text) == 'object')) return {errors: ['wait text must be a string or text selector']};
+  if (!command.element && !command.text) return {errors: ['wait command must have element and/or text to wait for']};
+  var textSelector = getTextSelector(command.text);
+  if (command.text && !textSelector) return {errors: ['wait text did not match a known text selector']};
+  try {
+    if (command.element && !textSelector) {
+      await page.waitForSelector(command.element);
+    } else if (textSelector) {
+      await page.waitForFunction(textSelector, {polling: 'mutation'},
+        command.element || 'html', command.text);
+    } else {
+      return {error: 'wait arguments did not evaluate to a wait condition'};
+    }
+  } catch (e) {
+    return {errors: [e]};
+  }
+  // TODO "while_waiting": [ COMMAND, COMMAND ]  //Execute commands after initiating wait
+  return {};
 };
 
 jsHarmonyTestSpec.prototype.command_input = async function(command, page, jsh, screenshotDir) {
