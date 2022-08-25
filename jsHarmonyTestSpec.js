@@ -69,12 +69,14 @@ jsHarmonyTestSpec.fromJSON = function(base_url, id, obj){
 };
 
 function textContainsString(element, text) {
-  return document.querySelector(element).textContent.includes(text);
+  var el = document.querySelector(element);
+  return el && el.textContent.includes(text);
 }
 
 var textSelectors = {
   contains: function textContains(element, text) {
-    return document.querySelector(element).textContent.includes(text.contains);
+    var el = document.querySelector(element);
+    return el && el.textContent.includes(text.contains);
   }
 };
 
@@ -184,13 +186,22 @@ jsHarmonyTestSpec.prototype.command_wait = async function(command, page, jsh, sc
 
 jsHarmonyTestSpec.prototype.command_input = async function(command, page, jsh, screenshotDir) {
   if (typeof(command.element) != 'string') return {errors: ['input missing element']};
-  if (typeof(command.value) != 'string') return {errors: ['input missing value']};
+  if (typeof(command.value) != 'string' && typeof(command.value) != 'boolean') return {errors: ['input missing value']};
   try {
     // TODO
     // enter
-    // checkboxes
+    // select-one
     // variables
-    await page.type(command.element, command.value);
+    var type = await page.$eval(command.element, function(el) {return el.type});
+    if (type == 'checkbox') {
+      var value;
+      if (command.value === true || command.value == 'true') value = true;
+      else if (command.value === false || command.value == 'false') value = false;
+      else return {errors: ['input checkbox invalid value']};
+      await page.$eval(command.element, function(el, value) { el.checked = value; }, value);
+    } else {
+      await page.type(command.element, command.value);
+    }
   } catch(e) {
     return {errors: [e]};
   }
