@@ -263,6 +263,69 @@ jsHarmonyTestScreenshot.prototype.runComparison = async function (cb) {
   });
 };
 
+function sortTests(tests) {
+  var map = {};
+  var items = tests.map(function(test) {
+    var item = {
+      test: test,
+      id: test.id,
+      batch: test.batch || '',
+      requireDepth: test.require.length ? 1 : 0,
+      sortDepth: 0,
+      hasDependents: false,
+    }
+    map[test.id] = item;
+    return item;
+  });
+
+  var changes;
+  var crazy = 0;
+  do {
+    changes = 0;
+    items.forEach(function(item) {
+      item.test.require.forEach(function(req) {
+        map[req].hasDependents = true;
+        var depth = map[req].requireDepth + 1;
+        if (depth > item.requireDepth) {
+          changes = changes + 1;
+          item.requireDepth = depth;
+        }
+      });
+    });
+  } while (changes > 0 && crazy++ < items.length);
+
+  var batchDepth = {};
+  items.forEach(function(item) {
+    var batch = item.batch || '';
+    batchDepth[batch] = Math.max(batchDepth[batch] || 0, item.requireDepth);
+  });
+
+  items.forEach(function(item) {
+    if (item.hasDependents) {
+      item.sortDepth = item.requireDepth;
+    } else {
+      var batch = item.batch || '';
+      item.sortDepth = batchDepth[batch];
+    }
+  });
+
+  items.sort(function (a, b) {
+    if (a.sortDepth != b.sortDepth) return a.sortDepth - b.sortDepth;
+    if (a.batch && b.batch) {
+      if (a.batch < b.batch) return -1;
+      if (a.batch > b.batch) return 1;
+      return 0;
+    }
+    if (a.batch && !b.batch) return -1;
+    if (!a.batch && b.batch) return 1;
+    if (a.id < b.id) return -1;
+    if (a.id > b.id) return 1;
+    return 0;
+  });
+
+  return items.map(function(item) {return item.test;});
+}
+
 //Read the test_spec_path folder, and parse the tests
 //  Parameters:
 //    cb - The callback function to be called on completion
@@ -296,12 +359,7 @@ jsHarmonyTestScreenshot.prototype.loadTests = async function (cb) {
     _this.warning('No tests defined. Place test JSON files in ' + local_path);
   }
 
-  tests.sort(function (a, b) {
-    if (a.batch && b.batch) return a.batch - b.batch;
-    if (!a.batch && b.batch) return 1;
-    if (a.batch && !b.batch) return -1;
-    return 0;
-  });
+  tests = sortTests(tests);
   if (cb) cb(null, tests);
   else return tests;
 };

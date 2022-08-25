@@ -42,7 +42,7 @@ function jsHarmonyTestSpec(_base_url,_id){
 const allowedProperties = {
   'id': '',
   'title': '',
-  'batch': 0,
+  'batch': '',
   'require': [],
   'commands': [],
 };
@@ -106,6 +106,7 @@ jsHarmonyTestSpec.prototype.run = async function (browser, jsh, screenshotDir, c
   let results = [];
   try {
     page = await browser.newPage();
+    page.setDefaultTimeout(5000);
     for (var i = 0;i < _this.commands.length;i++) {
       results.push(await _this.runCommand(_this.commands[i], page, jsh, screenshotDir));
     }
