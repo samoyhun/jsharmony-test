@@ -68,6 +68,7 @@ jsHarmonyTestSpec.fromJSON = function(base_url, id, obj){
   return jsTS;
 };
 
+// text selectors
 function textContainsString(element, text) {
   var el = document.querySelector(element);
   return el && el.textContent.includes(text);
@@ -90,13 +91,40 @@ function getTextSelector(text) {
   }
 }
 
+// value getters
+async function getValue(valueGetter, page) {
+  if (typeof(valueGetter.element) != 'string') return {errors: ['value missing element']};
+  if (typeof(valueGetter.property) != 'string') return {errors: ['value missing property']};
+  if (valueGetter.regex && typeof(valueGetter.regex) != 'string') return {errors: ['value regex must be a string']};
+
+  var regex;
+  if (valueGetter.regex) {
+    regex = new RegExp(valueGetter.regex);
+  }
+
+  var property = valueGetter.property;
+  if (property == 'text') property = 'textContent';
+  var value = await page.$eval(valueGetter.element, function(el, property) {return el[property]}, property);
+
+  if (regex) {
+    var result = regex.exec(value);
+    if (result && result.length) {
+      return {value: result[1]};
+    } else {
+      return {errors: ['value regex failed to match']};
+    }
+  } else {
+    return {value: value};
+  }
+}
+
 //Run the test commands
 //  Parameters:
 //    browser: A puppeteer Browser object
 //    jsh: jsharmony, used for image processing, and beforeScreenshot, which can do... anything
 //    screenshotDir: the path to the screenshot folder
 //    cb: The callback function to be called on completion
-jsHarmonyTestSpec.prototype.run = async function (browser, jsh, screenshotDir, cb) {
+jsHarmonyTestSpec.prototype.run = async function (browser, variables, jsh, screenshotDir, cb) {
   if (!browser) {
     if (cb) return cb(new Error('no browser available, Please configure jsh.Extensions.report'));
     else return;
@@ -110,7 +138,7 @@ jsHarmonyTestSpec.prototype.run = async function (browser, jsh, screenshotDir, c
     page = await browser.newPage();
     page.setDefaultTimeout(5000);
     for (var i = 0;i < _this.commands.length;i++) {
-      results.push(await _this.runCommand(_this.commands[i], page, jsh, screenshotDir));
+      results.push(await _this.runCommand(_this.commands[i], page, variables, jsh, screenshotDir));
     }
     await page.close();
     this.testWarnings = results.flatMap(function(res) { return res.warnings || [] });
@@ -125,8 +153,8 @@ jsHarmonyTestSpec.prototype.run = async function (browser, jsh, screenshotDir, c
   }
 };
 
-jsHarmonyTestSpec.prototype.runCommand = async function (command, page, jsh, screenshotDir) {
-  if (jsHarmonyTestSpec.commands.indexOf(command.exec) != -1) return this['command_'+command.exec](command, page, jsh, screenshotDir);
+jsHarmonyTestSpec.prototype.runCommand = async function (command, page, variables, jsh, screenshotDir) {
+  if (jsHarmonyTestSpec.commands.indexOf(command.exec) != -1) return this['command_'+command.exec](command, page, variables, jsh, screenshotDir);
   else return { errors: ['Unknown command: ' + command.exec] };
 }
 
@@ -136,9 +164,10 @@ jsHarmonyTestSpec.commands = [
   'wait',
   'input',
   'click',
+  'set',
 ];
 
-jsHarmonyTestSpec.prototype.command_navigate = async function(command, page, jsh, screenshotDir) {
+jsHarmonyTestSpec.prototype.command_navigate = async function(command, page, variables, jsh, screenshotDir) {
   if (typeof(command.url) != 'string') return {errors: ['navigate missing url']};
   var fullurl = new URL(command.url, this.base_url).toString();
   jsh.Log.info(fullurl);
@@ -150,7 +179,7 @@ jsHarmonyTestSpec.prototype.command_navigate = async function(command, page, jsh
   }
 };
 
-jsHarmonyTestSpec.prototype.command_screenshot = async function(command, page, jsh, screenshotDir) {
+jsHarmonyTestSpec.prototype.command_screenshot = async function(command, page, variables, jsh, screenshotDir) {
   if (typeof(command.id) != 'string') return {errors: ['screenshot missing id']};
   var screenshotSpec = jsHarmonyTestScreenshotSpec.fromJSON(command.id, command);
   var fname = screenshotSpec.generateFilename();
@@ -162,7 +191,7 @@ jsHarmonyTestSpec.prototype.command_screenshot = async function(command, page, j
   };
 };
 
-jsHarmonyTestSpec.prototype.command_wait = async function(command, page, jsh, screenshotDir) {
+jsHarmonyTestSpec.prototype.command_wait = async function(command, page, variables, jsh, screenshotDir) {
   if (command.element && typeof(command.element) != 'string') return {errors: ['wait element must be a string']};
   if (command.text && !(typeof(command.text) == 'string' || typeof(command.text) == 'object')) return {errors: ['wait text must be a string or text selector']};
   if (!command.element && !command.text) return {errors: ['wait command must have element and/or text to wait for']};
@@ -184,7 +213,7 @@ jsHarmonyTestSpec.prototype.command_wait = async function(command, page, jsh, sc
   return {};
 };
 
-jsHarmonyTestSpec.prototype.command_input = async function(command, page, jsh, screenshotDir) {
+jsHarmonyTestSpec.prototype.command_input = async function(command, page, variables, jsh, screenshotDir) {
   if (typeof(command.element) != 'string') return {errors: ['input missing element']};
   if (typeof(command.value) != 'string' && typeof(command.value) != 'boolean') return {errors: ['input missing value']};
   try {
@@ -209,13 +238,27 @@ jsHarmonyTestSpec.prototype.command_input = async function(command, page, jsh, s
   return {};
 };
 
-jsHarmonyTestSpec.prototype.command_click = async function(command, page, jsh, screenshotDir) {
+jsHarmonyTestSpec.prototype.command_click = async function(command, page, variables, jsh, screenshotDir) {
   if (typeof(command.element) != 'string') return {errors: ['click missing element']};
   if (command.button && typeof(command.button) != 'string') return {errors: ['click button must be a string']};
   var options = {};
   if (command.button) options.button = command.button;
   try {
     await page.click(command.element, options);
+  } catch(e) {
+    return {errors: [e]};
+  }
+  return {};
+};
+
+jsHarmonyTestSpec.prototype.command_set = async function(command, page, variables, jsh, screenshotDir) {
+  if (typeof(command.variable) != 'string') return {errors: ['set missing variable']};
+  if (typeof(command.value) != 'object') return {errors: ['set missing value']};
+  try {
+    var got = await getValue(command.value, page);
+    if (got.errors) return got;
+    variables[command.variable] = got.value;
+    jsh.Log.info(command.variable + ' = ' + got.value);
   } catch(e) {
     return {errors: [e]};
   }

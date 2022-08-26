@@ -469,12 +469,13 @@ function sanitizePath(string) {
 //    cb: The callback function to be called on completion
 jsHarmonyTestScreenshot.prototype.runTests = async function (tests, fpath, cb) {
   let browser = await this.getBrowser();
+  let variables = {};
   let _this = this;
   await new Promise((resolve,reject) => {
     async.eachLimit(tests, 1,
       async function (test_spec) {
         if (_this.show_progress) _this.info(test_spec.url);
-        await test_spec.run(browser, _this.jsh, fpath);
+        await test_spec.run(browser, variables, _this.jsh, fpath);
       },
       function (err) {
         if (browser) {
