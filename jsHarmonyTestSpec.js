@@ -190,7 +190,6 @@ jsHarmonyTestSpec.prototype.command_input = async function(command, page, jsh, s
   try {
     // TODO
     // enter
-    // select-one
     // variables
     var type = await page.$eval(command.element, function(el) {return el.type});
     if (type == 'checkbox') {
@@ -199,6 +198,8 @@ jsHarmonyTestSpec.prototype.command_input = async function(command, page, jsh, s
       else if (command.value === false || command.value == 'false') value = false;
       else return {errors: ['input checkbox invalid value']};
       await page.$eval(command.element, function(el, value) { el.checked = value; }, value);
+    } else if (type == 'select-one') {
+      await page.select(command.element, command.value);
     } else {
       await page.type(command.element, command.value);
     }
