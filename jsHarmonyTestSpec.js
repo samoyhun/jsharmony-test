@@ -165,6 +165,7 @@ jsHarmonyTestSpec.commands = [
   'input',
   'click',
   'set',
+  'assert',
 ];
 
 jsHarmonyTestSpec.prototype.command_navigate = async function(command, page, variables, jsh, screenshotDir) {
@@ -260,6 +261,31 @@ jsHarmonyTestSpec.prototype.command_set = async function(command, page, variable
     variables[command.variable] = got.value;
     jsh.Log.info(command.variable + ' = ' + got.value);
   } catch(e) {
+    return {errors: [e]};
+  }
+  return {};
+};
+
+jsHarmonyTestSpec.prototype.command_assert = async function(command, page, variables, jsh, screenshotDir) {
+  if (command.element && typeof(command.element) != 'string') return {errors: ['assert element must be a string']};
+  if (command.text && !(typeof(command.text) == 'string' || typeof(command.text) == 'object')) return {errors: ['assert text must be a string or text selector']};
+  if (command.error && !typeof(command.error) == 'string') return {errors: ['assert error must be a string']};
+  if (!command.element && !command.text) return {errors: ['assert command must have element and/or text check for']};
+  var textSelector = getTextSelector(command.text);
+  if (command.text && !textSelector) return {errors: ['assert text did not match a known text selector']};
+  try {
+    if (command.element && !textSelector) {
+      if (!await page.$eval(command.element, function(el) {return true;})) {
+        return {errors: [command.error || ('assert: ' + command.element + ' not found')]};
+      }
+    } else if (textSelector) {
+      if (!await page.evaluate(textSelector, command.element || 'html', command.text)) {
+        return {errors: [command.error || ('assert: ' + (command.element || 'html') + ' did not match the text selector')]};
+      }
+    } else {
+      return {error: 'assert arguments did not evaluate to a test condition'};
+    }
+  } catch (e) {
     return {errors: [e]};
   }
   return {};
