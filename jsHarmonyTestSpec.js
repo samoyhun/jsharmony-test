@@ -118,6 +118,16 @@ async function getValue(valueGetter, page) {
   }
 }
 
+function substituteVariables(variables, value) {
+  if (!(typeof(value) == 'string' && value.match('@'))) return value;
+
+  for (var name in variables) {
+    value = value.replace(new RegExp('@'+name, 'g'), variables[name]);
+  }
+
+  return value;
+}
+
 //Run the test commands
 //  Parameters:
 //    browser: A puppeteer Browser object
@@ -170,7 +180,7 @@ jsHarmonyTestSpec.commands = [
 
 jsHarmonyTestSpec.prototype.command_navigate = async function(command, page, variables, jsh, screenshotDir) {
   if (typeof(command.url) != 'string') return {errors: ['navigate missing url']};
-  var fullurl = new URL(command.url, this.base_url).toString();
+  var fullurl = substituteVariables(variables, new URL(command.url, this.base_url).toString());
   jsh.Log.info(fullurl);
   var resp = await page.goto(fullurl);
   if (resp._status <='304'){
@@ -214,24 +224,26 @@ jsHarmonyTestSpec.prototype.command_wait = async function(command, page, variabl
   return {};
 };
 
+//{ "exec": "input", "element": "[data-id=scanbox]", "value": "@ANOTAG\r" },
+
 jsHarmonyTestSpec.prototype.command_input = async function(command, page, variables, jsh, screenshotDir) {
   if (typeof(command.element) != 'string') return {errors: ['input missing element']};
   if (typeof(command.value) != 'string' && typeof(command.value) != 'boolean') return {errors: ['input missing value']};
+  var value = substituteVariables(variables, command.value);
   try {
     // TODO
     // enter
-    // variables
     var type = await page.$eval(command.element, function(el) {return el.type});
     if (type == 'checkbox') {
       var value;
-      if (command.value === true || command.value == 'true') value = true;
-      else if (command.value === false || command.value == 'false') value = false;
+      if (value === true || value == 'true') value = true;
+      else if (value === false || value == 'false') value = false;
       else return {errors: ['input checkbox invalid value']};
       await page.$eval(command.element, function(el, value) { el.checked = value; }, value);
     } else if (type == 'select-one') {
-      await page.select(command.element, command.value);
+      await page.select(command.element, value);
     } else {
-      await page.type(command.element, command.value);
+      await page.type(command.element, value);
     }
   } catch(e) {
     return {errors: [e]};
