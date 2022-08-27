@@ -35,6 +35,9 @@ function jsHarmonyTestConfig(){
   this.onLoad = null; // run the default command
   // [], // testing external server
   // [{ "exec": "shell", "path": "node", "params": ["app.js"], "cwd": "..." }],  // run the server before testing
+
+  this.variables = {};
+
   this.base_screenshot = {
     // "url": "",  // must be provided from config file should not be included here
     // "batch": 0,
