@@ -75,10 +75,58 @@ function textContainsString(element, text) {
 }
 
 var textSelectors = {
+  equals: function textEquals(element, text) {
+    var el = document.querySelector(element);
+    if (text.case == 'insensitive') {
+      return el && el.textContent.toLowerCase() == text.equals.toLowerCase();
+    } else {
+      return el && el.textContent == text.equals;
+    }
+  },
+  not_equals: function textNotEquals(element, text) {
+    var el = document.querySelector(element);
+    if (text.case == 'insensitive') {
+      return el && el.textContent.toLowerCase() != text.not_equals.toLowerCase();
+    } else {
+      return el && el.textContent != text.not_equals;
+    }
+  },
   contains: function textContains(element, text) {
     var el = document.querySelector(element);
-    return el && el.textContent.includes(text.contains);
-  }
+    if (text.case == 'insensitive') {
+      return el && el.textContent.toLowerCase().includes(text.contains.toLowerCase());
+    } else {
+      return el && el.textContent.includes(text.contains);
+    }
+  },
+  not_contains: function textNotContains(element, text) {
+    var el = document.querySelector(element);
+    if (text.case == 'insensitive') {
+      return el && !el.textContent.toLowerCase().includes(text.not_contains.toLowerCase());
+    } else {
+      return el && !el.textContent.includes(text.not_contains);
+    }
+  },
+  begins_with: function textBeginsWith(element, text) {
+    var el = document.querySelector(element);
+    if (text.case == 'insensitive') {
+      return el && el.textContent.toLowerCase().startsWith(text.begins_with.toLowerCase());
+    } else {
+      return el && el.textContent.startsWith(text.begins_with);
+    }
+  },
+  ends_with: function textEndsWith(element, text) {
+    var el = document.querySelector(element);
+    if (text.case == 'insensitive') {
+      return el && el.textContent.toLowerCase().endsWith(text.ends_with.toLowerCase());
+    } else {
+      return el && el.textContent.endsWith(text.ends_with);
+    }
+  },
+  regex: function textRegex(element, text) {
+    var el = document.querySelector(element);
+    return el && el.textContent.match(new RegExp(text.regex, text.case == 'insensitive' ? 'i' : ''));
+  },
 };
 
 function getTextSelector(text) {
