@@ -223,6 +223,7 @@ jsHarmonyTestSpec.commands = [
   'input',
   'click',
   'set',
+  'js',
   'assert',
 ];
 
@@ -245,8 +246,8 @@ jsHarmonyTestSpec.prototype.command_screenshot = async function(command, page, v
   var screenshotPath = path.join(screenshotDir, fname);
   await screenshotSpec.generateScreenshot(page, jsh, screenshotPath);
   return {
-    errors: screenshotSpec.testWarnings,
-    warnings: screenshotSpec.testErrors,
+    errors: screenshotSpec.testErrors,
+    warnings: screenshotSpec.testWarnings,
   };
 };
 
@@ -320,6 +321,38 @@ jsHarmonyTestSpec.prototype.command_set = async function(command, page, variable
     if (got.errors) return got;
     variables[command.variable] = got.value;
     jsh.Log.info(command.variable + ' = ' + got.value);
+  } catch(e) {
+    return {errors: [e]};
+  }
+  return {};
+};
+
+function parseHandler(jsh, handler, args, desc, scriptPath) {
+  if (_.isArray(handler)) handler = handler.join('');
+  return jsh.createFunction(handler, args, desc, scriptPath);
+}
+
+jsHarmonyTestSpec.prototype.command_js = async function(command, page, variables, jsh, screenshotDir) {
+  if (typeof(command.js) != 'string') return {errors: ['js missing js code']};
+  try {
+    var func_command = parseHandler(jsh, command.js, ['jsh', 'page', 'cb'], 'command', this.sourcePath);
+    var callbackValue;
+    await new Promise(async function(resolve) {
+      var result = func_command(jsh,page,function(ret) {
+        callbackValue = ret; resolve();
+      });
+      if (result && result.then) {
+        try {await result;}
+        catch (e) {callbackValue = e;}
+        resolve();
+      }
+      // else wait on the callback.
+    });
+    if (callbackValue) {
+      return {errors: [callbackValue]};
+    } else {
+      return {};
+    }
   } catch(e) {
     return {errors: [e]};
   }

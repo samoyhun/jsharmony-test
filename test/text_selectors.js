@@ -35,7 +35,7 @@ async function getBrowser() {
     });
     return await puppeteer.launch(browserParams);
   } catch (e) {
-    _this.error(e);
+    console.error(e);
   }
 }
 
