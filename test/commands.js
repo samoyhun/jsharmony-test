@@ -56,7 +56,7 @@ describe('commands', function() {
   
     this.browser = await getBrowser();
     this.page = await this.browser.newPage();
-    this.page.on('console', function(msg) {console.log(msg.text());});
+    this.page.on('console', function(msg) {console.log('browser: ', msg.text());});
     this.testSpec = jsHarmonyTestSpec.fromJSON('file://'+__dirname+'/', 'test', {});
 
     // navigate here, because everything else needs a page
@@ -79,7 +79,13 @@ describe('commands', function() {
 
   it('wait', async function() {
     var result = await this.testSpec.runCommand({exec: 'wait', element: '#loaded'}, this.page, {}, jsh, '');
-    assert.deepEqual(result.errors, undefined);
+    assert.deepEqual(result.errors, []);
+  });
+
+  it('wait - while waiting', async function() {
+    this.timeout(1000);
+    var result = await this.testSpec.runCommand({exec: 'wait', element: '#inserted', while_waiting: [{exec: 'js', js: 'return page.$eval("#container", function(el) {el.innerHTML = \'<div id="inserted"></div>\'});'}]}, this.page, {}, jsh, '');
+    assert.deepEqual(result.errors, []);
   });
 
   it('input - text', async function() {

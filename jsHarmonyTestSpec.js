@@ -191,25 +191,40 @@ jsHarmonyTestSpec.prototype.run = async function (browser, variables, jsh, scree
   var page;
   this.testWarnings = [];
   this.testErrors = [];
-  let results = [];
+  let result = {};
   try {
     page = await browser.newPage();
     page.setDefaultTimeout(5000);
-    for (var i = 0;i < _this.commands.length;i++) {
-      results.push(await _this.runCommand(_this.commands[i], page, variables, jsh, screenshotDir));
-    }
+    result = await _this.runCommandSeries(_this.commands, page, variables, jsh, screenshotDir);
     await page.close();
-    this.testWarnings = results.flatMap(function(res) { return res.warnings || [] });
-    this.testErrors = results.flatMap(function(res) { return res.errors || [] });
+    delete page;
+    this.testWarnings = result.warnings || [];
+    this.testErrors = result.errors || [];
     if(cb) return cb();
-  }catch (e) {
-    this.testWarnings = results.flatMap(function(res) { return res.warnings || [] });
-    this.testErrors = results.flatMap(function(res) { return res.errors || [] });
-    this.testErrors.push(e);
+  } catch (e) {
+    this.testErrors = [e];
     if (page) page.close();
     if(cb) return cb(e);
   }
 };
+
+jsHarmonyTestSpec.prototype.runCommandSeries = async function (commands, page, variables, jsh, screenshotDir) {
+  var _this = this;
+  let results = [];
+
+  try {
+    for (var i = 0;i < commands.length;i++) {
+      results.push(await _this.runCommand(commands[i], page, variables, jsh, screenshotDir));
+    }
+  } catch (e) {
+    results.push({errors: [e]});
+  }
+
+  return {
+    warnings: results.flatMap(function(res) { return res.warnings || [] }),
+    errors: results.flatMap(function(res) { return res.errors || [] }),
+  };
+}
 
 jsHarmonyTestSpec.prototype.runCommand = async function (command, page, variables, jsh, screenshotDir) {
   if (jsHarmonyTestSpec.commands.indexOf(command.exec) != -1) return this['command_'+command.exec](command, page, variables, jsh, screenshotDir);
@@ -257,23 +272,24 @@ jsHarmonyTestSpec.prototype.command_wait = async function(command, page, variabl
   if (!command.element && !command.text) return {errors: ['wait command must have element and/or text to wait for']};
   var textSelector = getTextSelector(command.text);
   if (command.text && !textSelector) return {errors: ['wait text did not match a known text selector']};
+  if (command.while_waiting && !_.isArray(command.while_waiting)) return {errors: ['while_waiting must be an array']};
   try {
+    var waitCondition;
     if (command.element && !textSelector) {
-      await page.waitForSelector(command.element);
+      waitCondition = page.waitForSelector(command.element);
     } else if (textSelector) {
-      await page.waitForFunction(textSelector, {polling: 'mutation'},
+      waitCondition = page.waitForFunction(textSelector, {polling: 'mutation'},
         command.element || 'html', command.text);
     } else {
-      return {error: 'wait arguments did not evaluate to a wait condition'};
+      return {errors: ['wait arguments did not evaluate to a wait condition']};
     }
+    var result = await this.runCommandSeries(command.while_waiting || [], page, variables, jsh, screenshotDir)
+    await waitCondition;
+    return result;
   } catch (e) {
     return {errors: [e]};
   }
-  // TODO "while_waiting": [ COMMAND, COMMAND ]  //Execute commands after initiating wait
-  return {};
 };
-
-//{ "exec": "input", "element": "[data-id=scanbox]", "value": "@ANOTAG\r" },
 
 jsHarmonyTestSpec.prototype.command_input = async function(command, page, variables, jsh, screenshotDir) {
   if (typeof(command.element) != 'string') return {errors: ['input missing element']};
@@ -333,7 +349,7 @@ function parseHandler(jsh, handler, args, desc, scriptPath) {
 }
 
 jsHarmonyTestSpec.prototype.command_js = async function(command, page, variables, jsh, screenshotDir) {
-  if (typeof(command.js) != 'string') return {errors: ['js missing js code']};
+  if (typeof(command.js) != 'string' && !_.isArray(command.js)) return {errors: ['js missing js code']};
   try {
     var func_command = parseHandler(jsh, command.js, ['jsh', 'page', 'cb'], 'command', this.sourcePath);
     var callbackValue;
@@ -376,7 +392,7 @@ jsHarmonyTestSpec.prototype.command_assert = async function(command, page, varia
         return {errors: [command.error || ('assert: ' + (command.element || 'html') + ' did not match the text selector')]};
       }
     } else {
-      return {error: 'assert arguments did not evaluate to a test condition'};
+      return {errors: ['assert arguments did not evaluate to a test condition']};
     }
   } catch (e) {
     return {errors: [e]};
