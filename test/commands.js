@@ -18,7 +18,7 @@ along with this package.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 var jsHarmonyTest = require('../jsHarmonyTest.js');
-var jsHarmonyTestSpec = require('../jsHarmonyTestSpec');
+var jsHarmonyTestRun = require('../jsHarmonyTestRun');
 var report = require('jsharmony-report');
 var image = require('jsharmony-image-magick');
 
@@ -44,10 +44,10 @@ async function getBrowser() {
 
 describe('commands', function() {
   this.timeout(4000);
-  var jsh;
+  var screenshotDir = __dirname+'/data';
 
   before(async function () {
-    jsh = this.jsh = new jsHarmonyTest.Application();
+    var jsh = this.jsh = new jsHarmonyTest.Application();
     jsh.Config.silentStart = true;
     jsh.Config.interactive = true;
     jsh.Config.system_settings.automatic_schema = false;
@@ -57,86 +57,87 @@ describe('commands', function() {
     this.browser = await getBrowser();
     this.page = await this.browser.newPage();
     this.page.on('console', function(msg) {console.log('browser: ', msg.text());});
-    this.testSpec = jsHarmonyTestSpec.fromJSON('file://'+__dirname+'/', 'test', {});
+    this.testRun = new jsHarmonyTestRun('file://'+__dirname+'/', 'test', screenshotDir, jsh);
 
     // navigate here, because everything else needs a page
-    var result = await this.testSpec.runCommand({exec: 'navigate', url: 'commands.html'}, this.page, {}, jsh, '');
+    var result = await this.testRun.runCommand({exec: 'navigate', url: 'commands.html'}, this.page, {});
     assert.deepEqual(result.errors, undefined);
   });
   after(async function() {
+    if (this.page) await this.page.close();
     delete this.page;
     if (this.browser) this.browser.close();
     delete this.browser;
   });
 
   it('screenshot', async function() {
-    var imagePath = __dirname+'/data/test_950_700.png';
+    var imagePath = screenshotDir+'/test_950_700.png';
     await fs.promises.unlink(imagePath);
-    var result = await this.testSpec.runCommand({exec: 'screenshot', id: 'test'}, this.page, {}, jsh, __dirname+'/data');
+    var result = await this.testRun.runCommand({exec: 'screenshot', id: 'test'}, this.page, {});
     assert.deepEqual(result.errors, []);
     await fs.promises.access(imagePath); // throws on access failure
   });
 
   it('wait', async function() {
-    var result = await this.testSpec.runCommand({exec: 'wait', element: '#loaded'}, this.page, {}, jsh, '');
+    var result = await this.testRun.runCommand({exec: 'wait', element: '#loaded'}, this.page, {});
     assert.deepEqual(result.errors, []);
   });
 
   it('wait - while waiting', async function() {
     this.timeout(1000);
-    var result = await this.testSpec.runCommand({exec: 'wait', element: '#inserted', while_waiting: [{exec: 'js', js: 'return page.$eval("#container", function(el) {el.innerHTML = \'<div id="inserted"></div>\'});'}]}, this.page, {}, jsh, '');
+    var result = await this.testRun.runCommand({exec: 'wait', element: '#inserted', while_waiting: [{exec: 'js', js: 'return page.$eval("#container", function(el) {el.innerHTML = \'<div id="inserted"></div>\'});'}]}, this.page, {});
     assert.deepEqual(result.errors, []);
   });
 
   it('input - text', async function() {
-    var result = await this.testSpec.runCommand({exec: 'input', element: '#text', value: 'text'}, this.page, {}, jsh, '');
+    var result = await this.testRun.runCommand({exec: 'input', element: '#text', value: 'text'}, this.page, {});
     assert.deepEqual(result.errors, undefined);
   });
 
   it('input - checkbox', async function() {
-    var result = await this.testSpec.runCommand({exec: 'input', element: '#checkbox', value: true}, this.page, {}, jsh, '');
+    var result = await this.testRun.runCommand({exec: 'input', element: '#checkbox', value: true}, this.page, {});
     assert.deepEqual(result.errors, undefined);
   });
 
   it('input - select', async function() {
-    var result = await this.testSpec.runCommand({exec: 'input', element: 'select', value: '1'}, this.page, {}, jsh, '');
+    var result = await this.testRun.runCommand({exec: 'input', element: 'select', value: '1'}, this.page, {});
     assert.deepEqual(result.errors, undefined);
   });
 
   it('click', async function() {
-    var result = await this.testSpec.runCommand({exec: 'click', element: '#checkbox'}, this.page, {}, jsh, '');
+    var result = await this.testRun.runCommand({exec: 'click', element: '#checkbox'}, this.page, {});
     assert.deepEqual(result.errors, undefined);
   });
 
   it('set', async function() {
     var variables = {};
-    var result = await this.testSpec.runCommand({exec: 'set', variable: 'var', value: {element: '#var', property: 'text'}}, this.page, variables, jsh, '');
+    var result = await this.testRun.runCommand({exec: 'set', variable: 'var', value: {element: '#var', property: 'text'}}, this.page, variables);
     assert.deepEqual(result.errors, undefined);
     assert.equal(variables.var, 'value');
   });
 
   it('js - callback success', async function() {
-    var result = await this.testSpec.runCommand({exec: 'js', js: 'cb()'}, this.page, {}, jsh, '');
+    var result = await this.testRun.runCommand({exec: 'js', js: 'cb()'}, this.page, {});
     assert.deepEqual(result.errors, undefined);
   });
 
   it('js - callback failure', async function() {
-    var result = await this.testSpec.runCommand({exec: 'js', js: 'cb("error")'}, this.page, {}, jsh, '');
+    var result = await this.testRun.runCommand({exec: 'js', js: 'cb("error")'}, this.page, {});
     assert.deepEqual(result.errors, ['error']);
   });
 
   it('js - promise success', async function() {
-    var result = await this.testSpec.runCommand({exec: 'js', js: 'return new Promise(function(resolve,reject){ resolve(); });'}, this.page, {}, jsh, '');
+    var result = await this.testRun.runCommand({exec: 'js', js: 'return new Promise(function(resolve,reject){ resolve(); });'}, this.page, {});
     assert.deepEqual(result.errors, undefined);
   });
 
   it('js - promise failure', async function() {
-    var result = await this.testSpec.runCommand({exec: 'js', js: 'return new Promise(function(resolve,reject){ reject("error"); });'}, this.page, {}, jsh, '');
+    var result = await this.testRun.runCommand({exec: 'js', js: 'return new Promise(function(resolve,reject){ reject("error"); });'}, this.page, {});
     assert.deepEqual(result.errors, ['error']);
   });
 
   it('assert', async function() {
-    var result = await this.testSpec.runCommand({exec: 'assert', element: '#loaded', text: 'Loaded'}, this.page, {}, jsh, '');
+    var result = await this.testRun.runCommand({exec: 'assert', element: '#loaded', text: 'Loaded'}, this.page, {});
     assert.deepEqual(result.errors, undefined);
   });
 

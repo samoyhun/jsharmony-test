@@ -18,6 +18,7 @@ along with this package.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 var jsHarmonyTestSpec = require('./jsHarmonyTestSpec.js');
+var jsHarmonyTestRun = require('./jsHarmonyTestRun.js');
 var _ = require('lodash');
 var ejs = require('ejs');
 var fs = require('fs');
@@ -107,11 +108,11 @@ jsHarmonyTestScreenshot.prototype.error = function(txt, options) {
   this.jsh.Log.error(txt, options);
 };
 
-jsHarmonyTestScreenshot.prototype.reportErrors = function(tests) {
+jsHarmonyTestScreenshot.prototype.reportErrors = function(tests, runs) {
   var rslt = '';
   rslt += reportErrorsIn(tests, 'importWarnings', 'Import Warnings');
-  rslt += reportErrorsIn(tests, 'testWarnings', 'Warnings');
-  rslt += reportErrorsIn(tests, 'testErrors', 'Errors');
+  rslt += reportErrorsIn(runs, 'testWarnings', 'Warnings');
+  rslt += reportErrorsIn(runs, 'testErrors', 'Errors');
   return rslt;
 };
 
@@ -119,13 +120,15 @@ function reportErrorsIn(tests, property, title) {
   var errText = '';
   let count = 0;
   _.forEach(tests, function(testSpec) {
-    count = count + testSpec[property].length;
+    if (testSpec[property]) {
+      count = count + testSpec[property].length;
+    }
   });
   if (count > 0) {
     errText += '\n' + title + '\n';
     _.forEach(tests, function(testSpec) {
-      if (testSpec[property].length > 0) {
-        errText += '  ' + testSpec.sourcePath + '\n';
+      if (testSpec[property] && testSpec[property].length > 0) {
+        errText += '  ' + testSpec.id + '\n';
         _.forEach(testSpec[property], function(x) {
           errText += '    ' + x + '\n';
         });
@@ -154,9 +157,9 @@ jsHarmonyTestScreenshot.prototype.generateMaster = async function (cb) {
   if (fs.existsSync(review_file)) fs.unlinkSync(review_file);
   this.recreateDirectory(master_dir);
   let tests = await this.loadTests();
-  await this.runTests(tests, master_dir);
+  let runs = await this.runTests(tests, master_dir);
 
-  var errText = this.reportErrors(tests);
+  var errText = this.reportErrors(tests, runs);
   if(errText) this.info(errText);
 
   //let images = this.prepareReview(tests);
@@ -184,9 +187,9 @@ jsHarmonyTestScreenshot.prototype.generateComparison = async function (cb) {
 
   this.recreateDirectory(comparison_dir);
   let tests = await this.loadTests();
-  await this.runTests(tests, comparison_dir);
+  let runs = await this.runTests(tests, comparison_dir);
 
-  var errText = this.reportErrors(tests);
+  var errText = this.reportErrors(tests, runs);
   if(errText) this.info('Errors occurred running tests\n'+errText);
 
   if (cb) return cb(new Error(errText));
@@ -434,7 +437,7 @@ jsHarmonyTestScreenshot.prototype.parseTests = function(fpath, test_group, setti
     const file_test_id = sanitizePath(path.basename(fpath, '.json'));
     const id = test_group + '_' + file_test_id;
     const obj = _.extend({}, file_test);
-    const testSpec = jsHarmonyTestSpec.fromJSON(settings.server, id, obj);
+    const testSpec = jsHarmonyTestSpec.fromJSON(id, obj);
     testSpec.sourcePath = fpath;
     file_test_specs.push(testSpec);
     warningCount = warningCount + testSpec.importWarnings.length;
@@ -470,11 +473,17 @@ function sanitizePath(string) {
 jsHarmonyTestScreenshot.prototype.runTests = async function (tests, fpath, cb) {
   let browser = await this.getBrowser();
   let _this = this;
+  let runs = [];
   await new Promise((resolve,reject) => {
     async.eachLimit(tests, 1,
       async function (test_spec) {
-        if (_this.show_progress) _this.info(test_spec.url);
-        await test_spec.run(browser, _this.settings.variables, _this.jsh, fpath);
+        var run = new jsHarmonyTestRun(_this.settings.server, test_spec.id, fpath, _this.jsh);
+        await run.begin(browser);
+        await run.run(_this.settings.before, _this.settings.variables);
+        await run.run(test_spec.commands, _this.settings.variables);
+        await run.run(_this.settings.after, _this.settings.variables);
+        await run.end();
+        runs.push(run);
       },
       function (err) {
         if (browser) {
@@ -488,42 +497,9 @@ jsHarmonyTestScreenshot.prototype.runTests = async function (tests, fpath, cb) {
         resolve();
       });
   });
-  if (cb) return cb();
+  if (cb) return cb(null, runs);
+  return runs;
 };
-
-
-//Generate screenshots of an array of tests, and save into a target folder
-//  Parameters:
-//    tests: An associative array of jsHarmonyTestSpec objects
-//    fpath: The full path to the target folder
-//    cb: The callback function to be called on completion
-//The fpath should be the same as the SCREENSHOT_NAME
-jsHarmonyTestScreenshot.prototype.generateScreenshots = async function (tests, fpath, cb) {
-  let browser = await this.getBrowser();
-  let _this = this;
-  await new Promise((resolve,reject) => {
-    async.eachLimit(tests, 1,
-      async function (screenshot_spec) {
-        if (_this.show_progress) _this.info(screenshot_spec.url);
-        var fname = screenshot_spec.generateFilename();
-        var screenshot_path = path.join(fpath, fname);
-        await screenshot_spec.generateScreenshot(browser, _this.jsh, screenshot_path);
-      },
-      function (err) {
-        if (browser) {
-          browser.close();
-          delete browser;
-       }
-       if (err) {
-          _this.error(err);
-          return reject(err);
-        }
-        resolve();
-      });
-  });
-  if (cb) return cb();
-};
-
 
 //Generate the "diff" image for any screenshots that are not exactly equal, into the "test_data_path/diff" folder
 //  Parameters:
