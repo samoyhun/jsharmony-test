@@ -21,9 +21,9 @@ var _ = require('lodash');
 
 //  Parameters:
 //    _id: id of test
-function jsHarmonyTestSpec(_id){
+function jsHarmonyTestSpec(_id, _sourcePath){
   this.id = _id;       //id of test
-  this.sourcePath; // path to the file that defined the test
+  this.sourcePath = _sourcePath; // path to the file that defined the test
   this.title = _id;
   this.batch = null;
   this.require = [];
@@ -46,8 +46,8 @@ const allowedProperties = {
 //    id: id of test
 //    obj: The JSON object
 //Returns a jsHarmonyTestSpec object
-jsHarmonyTestSpec.fromJSON = function(id, obj){
-  let jsTS = new jsHarmonyTestSpec(id);
+jsHarmonyTestSpec.fromJSON = function(id, sourcePath, obj){
+  let jsTS = new jsHarmonyTestSpec(id, sourcePath);
   let warnings = [];
   _.forEach(_.keys(obj), function(key) {
     if (!(key in allowedProperties)) {
@@ -57,6 +57,10 @@ jsHarmonyTestSpec.fromJSON = function(id, obj){
 
   const conf = _.extend({importWarnings: warnings},obj);
   _.assign(jsTS,conf);
+
+  _.forEach(jsTS.commands, function(command) {
+    command.sourcePath = sourcePath;
+  });
   return jsTS;
 };
 

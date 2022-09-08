@@ -35,7 +35,6 @@ var HelperFS = require('jsharmony/HelperFS');
 //var port = jsh.Config.server.http_port;
 //if(jsh.Servers['default'] && jsh.Servers['default'].servers && jsh.Servers['default'].servers.length) port = jsh.Servers['default'].servers[0].address().port;
 function jsHarmonyTestScreenshot(_jsh, settings, _test_spec_path, _test_data_path) {
-
   this.jsh = _jsh;
   if(_jsh) this.platform = _jsh;
   else{
@@ -71,6 +70,13 @@ function jsHarmonyTestScreenshot(_jsh, settings, _test_spec_path, _test_data_pat
     if(_jsh.Servers['default'] && _jsh.Servers['default'].servers && _jsh.Servers['default'].servers.length) port = _jsh.Servers['default'].servers[0].address().port;
 
     settings.server = 'http://localhost:' + port;
+  }
+
+  if (settings.before) {
+    settings.before.forEach(function(command) {command.sourcePath = 'base config';});
+  }
+  if (settings.after) {
+    settings.after.forEach(function(command) {command.sourcePath = 'base config';});
   }
 
   this.settings = settings;
@@ -386,6 +392,12 @@ jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (moduleName
       await new Promise((resolve,reject) => {
         _this.jsh.ParseJSON(config, 'jsHarmonyTest', 'Config file ' + config, function(err, conf) {
           if (err) reject(err);
+          if (conf.before) {
+            _.forEach(conf.before, function(command) {command.sourcePath = config;});
+          }
+          if (conf.after) {
+            _.forEach(conf.after, function(command) {command.sourcePath = config;});
+          }
           settings = _.extend({},parentSettings,conf);
           resolve(conf);
         });
@@ -437,8 +449,7 @@ jsHarmonyTestScreenshot.prototype.parseTests = function(fpath, test_group, setti
     const file_test_id = sanitizePath(path.basename(fpath, '.json'));
     const id = test_group + '_' + file_test_id;
     const obj = _.extend({}, file_test);
-    const testSpec = jsHarmonyTestSpec.fromJSON(id, obj);
-    testSpec.sourcePath = fpath;
+    const testSpec = jsHarmonyTestSpec.fromJSON(id, fpath, obj);
     file_test_specs.push(testSpec);
     warningCount = warningCount + testSpec.importWarnings.length;
 

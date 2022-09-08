@@ -29,6 +29,8 @@ function jsHarmonyTestConfig(){
 
   this.testOnly = [];
   this.screenshotOnly = [];
+  this.before = [];
+  this.after = [];
   this.additionalTestSearchPaths = [
     //{"group": "some-module", "path": "C:\wk\some-module\test\screenshots"},
   ],

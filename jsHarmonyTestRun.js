@@ -122,7 +122,6 @@ async function getValue(valueGetter, page) {
 
   var property = valueGetter.property;
   if (property == 'text') property = 'textContent';
-  console.log(valueGetter);
   var value = await page.$eval(valueGetter.element, function(el, property) {return el[property]}, property);
 
   if (regex) {
@@ -267,7 +266,7 @@ function parseHandler(jsh, handler, args, desc, scriptPath) {
 jsHarmonyTestRun.prototype.command_js = async function(command, page, variables) {
   if (typeof(command.js) != 'string' && !_.isArray(command.js)) return {errors: ['js missing js code']};
   try {
-    var func_command = parseHandler(this.jsh, command.js, ['jsh', 'page', 'cb'], 'command', this.sourcePath);
+    var func_command = parseHandler(this.jsh, command.js, ['jsh', 'page', 'cb'], 'command', command.sourcePath);
     var callbackValue;
     await new Promise(async function(resolve) {
       var result = func_command(this.jsh,page,function(ret) {
