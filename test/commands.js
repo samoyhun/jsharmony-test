@@ -123,7 +123,10 @@ describe('commands', function() {
 
   it('js - callback failure', async function() {
     var result = await this.testRun.runCommand({exec: 'js', js: 'cb("error")'}, this.page, {});
-    assert.deepEqual(result.errors, ['error']);
+    assert.equal(result.errors.length, 1);
+    assert.equal(result.errors[0].message, 'error');
+    assert(result.errors[0].command, 'command not assigned');
+    assert.equal(result.errors[0].command.exec, 'js');
   });
 
   it('js - promise success', async function() {
@@ -133,7 +136,10 @@ describe('commands', function() {
 
   it('js - promise failure', async function() {
     var result = await this.testRun.runCommand({exec: 'js', js: 'return new Promise(function(resolve,reject){ reject("error"); });'}, this.page, {});
-    assert.deepEqual(result.errors, ['error']);
+    assert.equal(result.errors.length, 1);
+    assert.equal(result.errors[0].message, 'error');
+    assert(result.errors[0].command, 'command not assigned');
+    assert.equal(result.errors[0].command.exec, 'js');
   });
 
   it('assert', async function() {

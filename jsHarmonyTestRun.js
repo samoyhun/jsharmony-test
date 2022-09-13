@@ -38,6 +38,31 @@ function jsHarmonyTestRun(_base_url,_id,_screenshotDir, _jsh){
   this.testErrors = [];
 }
 
+function CommandError(message, command) {
+  this.message = message;
+  this.command = command;
+  // Use V8's native method if available, otherwise fallback
+  if ("captureStackTrace" in Error)
+      Error.captureStackTrace(this, this.constructor);
+  else
+      this.stack = (new Error()).stack;
+}
+
+CommandError.prototype = Object.create(Error.prototype);
+CommandError.prototype.name = "CommandError";
+CommandError.prototype.constructor = CommandError;
+
+jsHarmonyTestRun.CommandError = CommandError;
+
+function asError(message, command) {
+  if (message instanceof Error) {
+    message.command = command;
+    return {errors: [message]};
+  } else {
+    return {errors: [new CommandError(message, command)]};
+  }
+}
+
 // text selectors
 function textContainsString(element, text) {
   var el = document.querySelector(element);
@@ -111,9 +136,9 @@ function getTextSelector(text) {
 
 // value getters
 async function getValue(valueGetter, page) {
-  if (typeof(valueGetter.element) != 'string') return {errors: ['value missing element']};
-  if (typeof(valueGetter.property) != 'string') return {errors: ['value missing property']};
-  if (valueGetter.regex && typeof(valueGetter.regex) != 'string') return {errors: ['value regex must be a string']};
+  if (typeof(valueGetter.element) != 'string') return asError('value missing element', valueGetter);
+  if (typeof(valueGetter.property) != 'string') return asError('value missing property', valueGetter);
+  if (valueGetter.regex && typeof(valueGetter.regex) != 'string') return asError('value regex must be a string', valueGetter);
 
   var regex;
   if (valueGetter.regex) {
@@ -129,7 +154,7 @@ async function getValue(valueGetter, page) {
     if (result && result.length) {
       return {value: result[1]};
     } else {
-      return {errors: ['value regex failed to match']};
+      return asError('value regex failed to match', valueGetter);
     }
   } else {
     return {value: value};
@@ -158,23 +183,24 @@ jsHarmonyTestRun.commands = [
 ];
 
 jsHarmonyTestRun.prototype.command_navigate = async function(command, page, variables) {
-  if (typeof(command.url) != 'string') return {errors: ['navigate missing url']};
+  if (typeof(command.url) != 'string') return asError('navigate missing url', command);
   var fullurl = substituteVariables(variables, new URL(command.url, this.base_url).toString());
   this.jsh.Log.info(fullurl);
   var resp = await page.goto(fullurl);
   if (resp._status <='304'){
     return {};
   } else {
-    return {errors: ['navigation failed ' + fullurl]};
+    return asError('navigation failed ' + fullurl, command);
   }
 };
 
 jsHarmonyTestRun.prototype.command_screenshot = async function(command, page, variables) {
-  if (typeof(command.id) != 'string') return {errors: ['screenshot missing id']};
+  if (typeof(command.id) != 'string') return asError('screenshot missing id', command);
   var screenshotSpec = jsHarmonyTestScreenshotSpec.fromJSON(command.id, command);
   var fname = screenshotSpec.generateFilename();
   var screenshotPath = path.join(this.screenshotDir, fname);
   await screenshotSpec.generateScreenshot(page, this.jsh, screenshotPath);
+  _.forEach(screenshotSpec.testErrors, function(err) {err.command = command});
   return {
     errors: screenshotSpec.testErrors,
     warnings: screenshotSpec.testWarnings,
@@ -182,12 +208,12 @@ jsHarmonyTestRun.prototype.command_screenshot = async function(command, page, va
 };
 
 jsHarmonyTestRun.prototype.command_wait = async function(command, page, variables) {
-  if (command.element && typeof(command.element) != 'string') return {errors: ['wait element must be a string']};
-  if (command.text && !(typeof(command.text) == 'string' || typeof(command.text) == 'object')) return {errors: ['wait text must be a string or text selector']};
-  if (!command.element && !command.text) return {errors: ['wait command must have element and/or text to wait for']};
+  if (command.element && typeof(command.element) != 'string') return asError('wait element must be a string', command);
+  if (command.text && !(typeof(command.text) == 'string' || typeof(command.text) == 'object')) return asError('wait text must be a string or text selector', command);
+  if (!command.element && !command.text) return asError('wait command must have element and/or text to wait for', command);
   var textSelector = getTextSelector(command.text);
-  if (command.text && !textSelector) return {errors: ['wait text did not match a known text selector']};
-  if (command.while_waiting && !_.isArray(command.while_waiting)) return {errors: ['while_waiting must be an array']};
+  if (command.text && !textSelector) return asError('wait text did not match a known text selector', command);
+  if (command.while_waiting && !_.isArray(command.while_waiting)) return asError('while_waiting must be an array', command);
   try {
     var waitCondition;
     if (command.element && !textSelector) {
@@ -196,19 +222,19 @@ jsHarmonyTestRun.prototype.command_wait = async function(command, page, variable
       waitCondition = page.waitForFunction(textSelector, {polling: 'mutation'},
         command.element || 'html', command.text);
     } else {
-      return {errors: ['wait arguments did not evaluate to a wait condition']};
+      return asError('wait arguments did not evaluate to a wait condition', command);
     }
     var result = await this.runCommandSeries(command.while_waiting || [], page, variables)
     await waitCondition;
     return result;
   } catch (e) {
-    return {errors: [e]};
+    return asError(e, command);
   }
 };
 
 jsHarmonyTestRun.prototype.command_input = async function(command, page, variables) {
-  if (typeof(command.element) != 'string') return {errors: ['input missing element']};
-  if (typeof(command.value) != 'string' && typeof(command.value) != 'boolean') return {errors: ['input missing value']};
+  if (typeof(command.element) != 'string') return asError('input missing element', command);
+  if (typeof(command.value) != 'string' && typeof(command.value) != 'boolean') return asError('input missing value', command);
   var value = substituteVariables(variables, command.value);
   try {
     // TODO
@@ -218,7 +244,7 @@ jsHarmonyTestRun.prototype.command_input = async function(command, page, variabl
       var value;
       if (value === true || value == 'true') value = true;
       else if (value === false || value == 'false') value = false;
-      else return {errors: ['input checkbox invalid value']};
+      else return asError('input checkbox invalid value', command);
       await page.$eval(command.element, function(el, value) { el.checked = value; }, value);
     } else if (type == 'select-one') {
       await page.select(command.element, value);
@@ -226,34 +252,34 @@ jsHarmonyTestRun.prototype.command_input = async function(command, page, variabl
       await page.type(command.element, value);
     }
   } catch(e) {
-    return {errors: [e]};
+    return asError(e, command);
   }
   return {};
 };
 
 jsHarmonyTestRun.prototype.command_click = async function(command, page, variables) {
-  if (typeof(command.element) != 'string') return {errors: ['click missing element']};
-  if (command.button && typeof(command.button) != 'string') return {errors: ['click button must be a string']};
+  if (typeof(command.element) != 'string') return asError('click missing element', command);
+  if (command.button && typeof(command.button) != 'string') return asError('click button must be a string', command);
   var options = {};
   if (command.button) options.button = command.button;
   try {
     await page.click(command.element, options);
   } catch(e) {
-    return {errors: [e]};
+    return asError(e, command);
   }
   return {};
 };
 
 jsHarmonyTestRun.prototype.command_set = async function(command, page, variables) {
-  if (typeof(command.variable) != 'string') return {errors: ['set missing variable']};
-  if (typeof(command.value) != 'object') return {errors: ['set missing value']};
+  if (typeof(command.variable) != 'string') return asError('set missing variable', command);
+  if (typeof(command.value) != 'object') return asError('set missing value', command);
   try {
     var got = await getValue(command.value, page);
     if (got.errors) return got;
     variables[command.variable] = got.value;
     this.jsh.Log.info(command.variable + ' = ' + got.value);
   } catch(e) {
-    return {errors: [e]};
+    return asError(e, command);
   }
   return {};
 };
@@ -264,7 +290,7 @@ function parseHandler(jsh, handler, args, desc, scriptPath) {
 }
 
 jsHarmonyTestRun.prototype.command_js = async function(command, page, variables) {
-  if (typeof(command.js) != 'string' && !_.isArray(command.js)) return {errors: ['js missing js code']};
+  if (typeof(command.js) != 'string' && !_.isArray(command.js)) return asError('js missing js code', command);
   try {
     var func_command = parseHandler(this.jsh, command.js, ['jsh', 'page', 'cb'], 'command', command.sourcePath);
     var callbackValue;
@@ -280,37 +306,37 @@ jsHarmonyTestRun.prototype.command_js = async function(command, page, variables)
       // else wait on the callback.
     });
     if (callbackValue) {
-      return {errors: [callbackValue]};
+      return asError(callbackValue, command);
     } else {
       return {};
     }
   } catch(e) {
-    return {errors: [e]};
+    return asError(e, command);
   }
   return {};
 };
 
 jsHarmonyTestRun.prototype.command_assert = async function(command, page, variables) {
-  if (command.element && typeof(command.element) != 'string') return {errors: ['assert element must be a string']};
-  if (command.text && !(typeof(command.text) == 'string' || typeof(command.text) == 'object')) return {errors: ['assert text must be a string or text selector']};
-  if (command.error && !typeof(command.error) == 'string') return {errors: ['assert error must be a string']};
-  if (!command.element && !command.text) return {errors: ['assert command must have element and/or text check for']};
+  if (command.element && typeof(command.element) != 'string') return asError('assert element must be a string', command);
+  if (command.text && !(typeof(command.text) == 'string' || typeof(command.text) == 'object')) return asError('assert text must be a string or text selector', command);
+  if (command.error && !typeof(command.error) == 'string') return asError('assert error must be a string', command);
+  if (!command.element && !command.text) return asError('assert command must have element and/or text check for', command);
   var textSelector = getTextSelector(command.text);
-  if (command.text && !textSelector) return {errors: ['assert text did not match a known text selector']};
+  if (command.text && !textSelector) return asError('assert text did not match a known text selector', command);
   try {
     if (command.element && !textSelector) {
       if (!await page.$eval(command.element, function(el) {return true;})) {
-        return {errors: [command.error || ('assert: ' + command.element + ' not found')]};
+        return asError(command.error || ('assert: ' + command.element + ' not found'), command);
       }
     } else if (textSelector) {
       if (!await page.evaluate(textSelector, command.element || 'html', command.text)) {
-        return {errors: [command.error || ('assert: ' + (command.element || 'html') + ' did not match the text selector')]};
+        return asError(command.error || ('assert: ' + (command.element || 'html') + ' did not match the text selector'), command);
       }
     } else {
-      return {errors: ['assert arguments did not evaluate to a test condition']};
+      return asError('assert arguments did not evaluate to a test condition', command);
     }
   } catch (e) {
-    return {errors: [e]};
+    return asError(e, command);
   }
   return {};
 };

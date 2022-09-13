@@ -137,6 +137,9 @@ function reportErrorsIn(tests, property, title) {
         errText += '  ' + testSpec.id + '\n';
         _.forEach(testSpec[property], function(x) {
           errText += '    ' + x + '\n';
+          if (x.command) {
+            errText += '      ' + JSON.stringify(x.command) + '\n';
+          }
         });
       }
     });
