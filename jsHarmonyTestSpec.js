@@ -57,10 +57,6 @@ jsHarmonyTestSpec.fromJSON = function(id, sourcePath, obj){
 
   const conf = _.extend({importWarnings: warnings},obj);
   _.assign(jsTS,conf);
-
-  _.forEach(jsTS.commands, function(command) {
-    command.sourcePath = sourcePath;
-  });
   return jsTS;
 };
 

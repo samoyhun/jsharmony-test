@@ -72,13 +72,6 @@ function jsHarmonyTestScreenshot(_jsh, settings, _test_spec_path, _test_data_pat
     settings.server = 'http://localhost:' + port;
   }
 
-  if (settings.before) {
-    settings.before.forEach(function(command) {command.sourcePath = 'base config';});
-  }
-  if (settings.after) {
-    settings.after.forEach(function(command) {command.sourcePath = 'base config';});
-  }
-
   this.settings = settings;
 }
 
@@ -395,12 +388,6 @@ jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (moduleName
       await new Promise((resolve,reject) => {
         _this.jsh.ParseJSON(config, 'jsHarmonyTest', 'Config file ' + config, function(err, conf) {
           if (err) reject(err);
-          if (conf.before) {
-            _.forEach(conf.before, function(command) {command.sourcePath = config;});
-          }
-          if (conf.after) {
-            _.forEach(conf.after, function(command) {command.sourcePath = config;});
-          }
           settings = _.extend({},parentSettings,conf);
           resolve(conf);
         });
