@@ -65,6 +65,8 @@ function jsHarmonyTestScreenshot(_jsh, settings, _test_spec_path, _test_data_pat
   this.show_progress = true;
   this.show_browser = false;
 
+  this.settingWarnings = [];
+
   if (!settings.server) {
     var port = _jsh.Config.server.http_port;
     if(_jsh.Servers['default'] && _jsh.Servers['default'].servers && _jsh.Servers['default'].servers.length) port = _jsh.Servers['default'].servers[0].address().port;
@@ -109,6 +111,7 @@ jsHarmonyTestScreenshot.prototype.error = function(txt, options) {
 
 jsHarmonyTestScreenshot.prototype.reportErrors = function(tests, runs) {
   var rslt = '';
+  rslt += reportErrorsIn([this], 'settingWarnings', 'Setting Warnings');
   rslt += reportErrorsIn(tests, 'importWarnings', 'Import Warnings');
   rslt += reportErrorsIn(runs, 'testWarnings', 'Warnings');
   rslt += reportErrorsIn(runs, 'testErrors', 'Errors');
@@ -127,7 +130,7 @@ function reportErrorsIn(tests, property, title) {
     errText += '\n' + title + '\n';
     _.forEach(tests, function(testSpec) {
       if (testSpec[property] && testSpec[property].length > 0) {
-        errText += '  ' + testSpec.id + '\n';
+        if (testSpec.id) errText += '  ' + testSpec.id + '\n';
         _.forEach(testSpec[property], function(x) {
           errText += '    ' + x + '\n';
           if (x.command) {
@@ -378,22 +381,52 @@ async function exists(filepath) {
   }
 }
 
+var allowedSettings = {
+  server: '',
+  appbasepath: '',
+  datadir: '',
+  onLoad: [],
+  screenshot: {},
+  namespace: '',
+  testOnly: [],
+  require: [],
+  before: [],
+  after: [],
+};
+
+jsHarmonyTestScreenshot.prototype.validateSettings = function(settings, sourcePath) {
+  var _this = this;
+  var warnings = [];
+  _.forEach(_.keys(settings), function(key) {
+    if (!(key in allowedSettings)) {
+      _this.settingWarnings.push('Unknown property [' + key + '] in ' + sourcePath);
+    }
+  });
+}
+
+jsHarmonyTestScreenshot.prototype.loadConfigInFolder = async function(folderPath, parentSettings) {
+  let _this = this;
+  let configPath = path.join(folderPath, '_config.json');
+  if (await exists(configPath)) {
+    return await new Promise((resolve,reject) => {
+      _this.jsh.ParseJSON(configPath, 'jsHarmonyTest', 'Config file ' + configPath, function(err, conf) {
+        if (err) reject(err);
+        _this.validateSettings(conf, configPath);
+        resolve(_.assign({},parentSettings,conf));
+      });
+    });
+  } else {
+    return parentSettings;
+  }
+}
+
 jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (moduleName, folderPath, parentSettings) {
   let _this = this;
   let testChunks = [];
-  let settings = parentSettings;
   try {
-    let config = path.join(folderPath, '_config.json');
-    if (await exists(config)) {
-      await new Promise((resolve,reject) => {
-        _this.jsh.ParseJSON(config, 'jsHarmonyTest', 'Config file ' + config, function(err, conf) {
-          if (err) reject(err);
-          settings = _.extend({},parentSettings,conf);
-          resolve(conf);
-        });
-      });
-    }
+    let settings = await _this.loadConfigInFolder(folderPath, parentSettings);
     let testOnly = settings.testOnly || [];
+
     var files = await fs.promises.readdir(folderPath);
     await Promise.all(files.map(async function(fname) {
       var fullpath = path.join(folderPath, fname);
@@ -439,7 +472,7 @@ jsHarmonyTestScreenshot.prototype.parseTests = function(fpath, test_group, setti
     const file_test_id = sanitizePath(path.basename(fpath, '.json'));
     const id = test_group + '_' + file_test_id;
     const obj = _.extend({}, file_test);
-    const testSpec = jsHarmonyTestSpec.fromJSON(id, fpath, obj);
+    const testSpec = jsHarmonyTestSpec.fromJSON(id, fpath, settings, obj);
     file_test_specs.push(testSpec);
     warningCount = warningCount + testSpec.importWarnings.length;
 
@@ -478,11 +511,11 @@ jsHarmonyTestScreenshot.prototype.runTests = async function (tests, fpath, cb) {
   await new Promise((resolve,reject) => {
     async.eachLimit(tests, 1,
       async function (test_spec) {
-        var run = new jsHarmonyTestRun(_this.settings.server, test_spec.id, fpath, _this.jsh);
+        var run = new jsHarmonyTestRun(test_spec.server || _this.settings.server, test_spec.id, fpath, _this.jsh);
         await run.begin(browser);
-        await run.run(_this.settings.before, _this.settings.variables);
+        await run.run(test_spec.before, _this.settings.variables);
         await run.run(test_spec.commands, _this.settings.variables);
-        await run.run(_this.settings.after, _this.settings.variables);
+        await run.run(test_spec.after, _this.settings.variables);
         await run.end();
         runs.push(run);
       },

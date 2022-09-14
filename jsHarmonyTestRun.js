@@ -27,8 +27,8 @@ var path = require('path');
 //    _screenshotDir
 //    _jsh: jsharmony, used for image processing, and js commands
 
-function jsHarmonyTestRun(_base_url,_id,_screenshotDir, _jsh){
-  this.base_url = _base_url;
+function jsHarmonyTestRun(_server,_id,_screenshotDir, _jsh){
+  this.server = _server;
   this.id = _id;
   this.screenshotDir = _screenshotDir;
   this.jsh = _jsh;
@@ -184,7 +184,7 @@ jsHarmonyTestRun.commands = [
 
 jsHarmonyTestRun.prototype.command_navigate = async function(command, page, variables) {
   if (typeof(command.url) != 'string') return asError('navigate missing url', command);
-  var fullurl = substituteVariables(variables, new URL(command.url, this.base_url).toString());
+  var fullurl = substituteVariables(variables, new URL(command.url, this.server).toString());
   this.jsh.Log.info(fullurl);
   var resp = await page.goto(fullurl);
   if (resp._status <='304'){

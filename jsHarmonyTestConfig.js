@@ -22,7 +22,6 @@ var path = require('path');
 
 function jsHarmonyTestConfig(){
   this.moduledir = path.dirname(module.filename);
-  this.forDB = {};
 
   this.server = null; // leave blank so we can know whether to sub in the system port later
   this.loadTimeout = 30; // seconds

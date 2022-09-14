@@ -46,7 +46,7 @@ const allowedProperties = {
 //    id: id of test
 //    obj: The JSON object
 //Returns a jsHarmonyTestSpec object
-jsHarmonyTestSpec.fromJSON = function(id, sourcePath, obj){
+jsHarmonyTestSpec.fromJSON = function(id, sourcePath, settings, obj){
   let jsTS = new jsHarmonyTestSpec(id, sourcePath);
   let warnings = [];
   _.forEach(_.keys(obj), function(key) {
@@ -55,7 +55,7 @@ jsHarmonyTestSpec.fromJSON = function(id, sourcePath, obj){
     }
   });
 
-  const conf = _.extend({importWarnings: warnings},obj);
+  const conf = _.assign({importWarnings: warnings},settings,obj);
   _.assign(jsTS,conf);
   return jsTS;
 };

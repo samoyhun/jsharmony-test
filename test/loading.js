@@ -52,30 +52,30 @@ describe('test loading', function() {
     var test = new jsHarmonyTestScreenshot(app, {}, 'test/loading/empty', 'test/app/data');
     var tests = await test.loadTests();
     assert.equal(tests.length, 1);
-    assert.equal(tests[0].base_url, 'http://localhost:0');
+    assert.equal(tests[0].server, 'http://localhost:0');
   });
   it('empty test, argument config', async function() {
     var test = new jsHarmonyTestScreenshot(app, {server: "arg"}, 'test/loading/empty', 'test/app/data');
     var tests = await test.loadTests();
     assert.equal(tests.length, 1);
-    assert.equal(tests[0].base_url, 'arg');
+    assert.equal(tests[0].server, 'arg');
   });
   it('empty test, peer config', async function() {
     var test = new jsHarmonyTestScreenshot(app, {server: "arg"}, 'test/loading/peer', 'test/app/data');
     var tests = await test.loadTests();
     assert.equal(tests.length, 1);
-    assert.equal(tests[0].base_url, 'peer');
+    assert.equal(tests[0].server, 'peer');
   });
   it('load test in subfolder', async function() {
     var test = new jsHarmonyTestScreenshot(app, {server: "arg"}, 'test/loading/emptyparent', 'test/app/data');
     var tests = await test.loadTests();
     assert.equal(tests.length, 1);
-    assert.equal(tests[0].base_url, 'sub');
+    assert.equal(tests[0].server, 'sub');
   });
   it('parent config', async function() {
     var test = new jsHarmonyTestScreenshot(app, {server: "arg"}, 'test/loading/parentconfig', 'test/app/data');
     var tests = await test.loadTests();
     assert.equal(tests.length, 1);
-    assert.equal(tests[0].base_url, 'parent');
+    assert.equal(tests[0].server, 'parent');
   });
 });
