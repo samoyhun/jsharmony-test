@@ -196,7 +196,7 @@ jsHarmonyTestRun.prototype.command_navigate = async function(command, page, vari
 
 jsHarmonyTestRun.prototype.command_screenshot = async function(command, page, variables) {
   if (typeof(command.id) != 'string') return asError('screenshot missing id', command);
-  var screenshotSpec = jsHarmonyTestScreenshotSpec.fromJSON(command.id, command);
+  var screenshotSpec = jsHarmonyTestScreenshotSpec.fromJSON(this.id + '_' + command.id, command);
   var fname = screenshotSpec.generateFilename();
   var screenshotPath = path.join(this.screenshotDir, fname);
   await screenshotSpec.generateScreenshot(page, this.jsh, screenshotPath);

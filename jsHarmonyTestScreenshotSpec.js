@@ -146,14 +146,18 @@ jsHarmonyTestScreenshotSpec.fromJSON = function(id, obj){
       warnings.push('Unknown property [' + key + '] in test ' + id);
     }
   });
-  const conf = _.extend({importWarnings: warnings},obj);
+  const conf = _.extend({importWarnings: warnings},_.omit(obj,['id']));
   _.assign(jsTS,conf);
   return jsTS;
 };
 
+function sanitizePath(string) {
+  return string.replace(/[^0-9A-Za-z]/g, '_');
+}
+
 jsHarmonyTestScreenshotSpec.prototype.generateFilename = function(){
   //Generate file name
-  var fname = this.id;
+  var fname = sanitizePath(this.id);
   if(this.width) fname += '_' + this.width;
   if(this.height) fname += '_' + this.height;
   fname += '.png';

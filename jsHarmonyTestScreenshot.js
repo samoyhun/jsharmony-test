@@ -412,19 +412,20 @@ jsHarmonyTestScreenshot.prototype.loadConfigInFolder = async function(folderPath
       _this.jsh.ParseJSON(configPath, 'jsHarmonyTest', 'Config file ' + configPath, function(err, conf) {
         if (err) reject(err);
         _this.validateSettings(conf, configPath);
-        resolve(_.assign({},parentSettings,conf));
+        resolve(_.assign({},parentSettings,{namespace: null},conf));
       });
     });
   } else {
-    return parentSettings;
+    return _.assign({},parentSettings,{namespace: null});
   }
 }
 
-jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (moduleName, folderPath, parentSettings) {
+jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (namespace, folderPath, parentSettings) {
   let _this = this;
   let testChunks = [];
   try {
     let settings = await _this.loadConfigInFolder(folderPath, parentSettings);
+    if (settings.namespace) namespace = settings.namespace;
     let testOnly = settings.testOnly || [];
 
     var files = await fs.promises.readdir(folderPath);
@@ -432,14 +433,13 @@ jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (moduleName
       var fullpath = path.join(folderPath, fname);
       var stats = await fs.promises.lstat(fullpath);
       if (stats.isDirectory()) {
-        testChunks.push(await _this.loadTestsInFolder(moduleName, fullpath, settings));
+        testChunks.push(await _this.loadTestsInFolder(prependNamespace(namespace, fname), fullpath, settings));
       } else {
         if (fname.startsWith('_')) return;
         if (fname.substring(fname.length-5) !== '.json') return;
         if (testOnly.length > 0 && testOnly.indexOf(fname) == -1) return;
-        let test_group = getTestsGroupName(moduleName,fname);
         await new Promise((resolve,reject) => {
-          _this.parseTests(fullpath, test_group, settings, function(err, newTests) {
+          _this.parseTests(fullpath, namespace, settings, function(err, newTests) {
             testChunks.push(newTests);
             if (err) reject(err);
             else resolve();
@@ -461,7 +461,7 @@ jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (moduleName
 //    settings: resolved _config.json values
 //    cb - The callback function to be called on completion
 //Use jsh.ParseJSON to convert the string to JSON
-jsHarmonyTestScreenshot.prototype.parseTests = function(fpath, test_group, settings, cb){
+jsHarmonyTestScreenshot.prototype.parseTests = function(fpath, namespace, settings, cb){
   let _this = this;
   let screenshotOnly = settings.screenshotOnly || [];
   let warningCount = 0;
@@ -469,10 +469,10 @@ jsHarmonyTestScreenshot.prototype.parseTests = function(fpath, test_group, setti
   _this.jsh.ParseJSON(fpath, 'jsHarmonyTest', 'Screenshot Test ' + fpath, function(err, file_test) {
     if (err) return cb(err);
     //if (screenshotOnly.length > 0 && screenshotOnly.indexOf(file_test_id) == -1) continue;
-    const file_test_id = sanitizePath(path.basename(fpath, '.json'));
-    const id = test_group + '_' + file_test_id;
+    const file_test_id = path.basename(fpath, '.json');
     const obj = _.extend({}, file_test);
-    const testSpec = jsHarmonyTestSpec.fromJSON(id, fpath, settings, obj);
+    const testSpec = jsHarmonyTestSpec.fromJSON(file_test_id, fpath, settings, obj);
+    testSpec.id = prependNamespace(namespace, testSpec.id);
     file_test_specs.push(testSpec);
     warningCount = warningCount + testSpec.importWarnings.length;
 
@@ -487,19 +487,15 @@ jsHarmonyTestScreenshot.prototype.parseTests = function(fpath, test_group, setti
   });
 };
 
-function getTestsGroupName(module, file_name) {
-  if (file_name.startsWith('_')) {
-    return null;
+function prependNamespace(namespace, next) {
+  if (next.startsWith('/')) {
+    return next.slice(1);
+  } else {
+    return _.join(_.compact([namespace, next]), '/')
   }
-  let name = module + '_' + file_name;
-  return sanitizePath(name);
 }
 
-function sanitizePath(string) {
-  return string.replace(/[^0-9A-Za-z]/g, '_');
-}
-
-//Run arra of tests
+//Run array of tests
 //  Parameters:
 //    tests: An array of jsHarmonyTestSpec objects
 //    fpath: The full path to the screenshot folder
