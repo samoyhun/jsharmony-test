@@ -139,7 +139,7 @@ jsHarmonyTestScreenshotSpec.fromJSON = function(obj){
   let warnings = [];
   _.forEach(_.keys(obj), function(key) {
     if (!(key in allowedProperties)) {
-      warnings.push('Unknown property [' + key + '] in test ' + id);
+      warnings.push('Unknown property [' + key + '] in screenshot');
     }
   });
   const conf = _.extend({importWarnings: warnings},_.omit(obj,['id']));

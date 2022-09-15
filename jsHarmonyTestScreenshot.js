@@ -280,7 +280,7 @@ function sortTests(tests) {
       requireDepth: test.require.length ? 1 : 0,
       sortDepth: 0,
       hasDependents: false,
-    }
+    };
     map[test.id] = item;
     return item;
   });
@@ -395,13 +395,12 @@ var allowedSettings = {
 
 jsHarmonyTestScreenshot.prototype.validateSettings = function(settings, sourcePath) {
   var _this = this;
-  var warnings = [];
   _.forEach(_.keys(settings), function(key) {
     if (!(key in allowedSettings)) {
       _this.settingWarnings.push('Unknown property [' + key + '] in ' + sourcePath);
     }
   });
-}
+};
 
 jsHarmonyTestScreenshot.prototype.loadConfigInFolder = async function(folderPath, parentSettings) {
   let _this = this;
@@ -417,7 +416,7 @@ jsHarmonyTestScreenshot.prototype.loadConfigInFolder = async function(folderPath
   } else {
     return _.assign({},parentSettings,{namespace: null});
   }
-}
+};
 
 jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (namespace, folderPath, parentSettings) {
   let _this = this;
@@ -462,12 +461,10 @@ jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (namespace,
 //Use jsh.ParseJSON to convert the string to JSON
 jsHarmonyTestScreenshot.prototype.parseTests = function(fpath, namespace, settings, cb){
   let _this = this;
-  let screenshotOnly = settings.screenshotOnly || [];
   let warningCount = 0;
   let file_test_specs = [];
   _this.jsh.ParseJSON(fpath, 'jsHarmonyTest', 'Screenshot Test ' + fpath, function(err, file_test) {
     if (err) return cb(err);
-    //if (screenshotOnly.length > 0 && screenshotOnly.indexOf(file_test_id) == -1) continue;
     const file_test_id = path.basename(fpath, '.json');
     const obj = _.extend({}, file_test);
     const testSpec = jsHarmonyTestSpec.fromJSON(file_test_id, fpath, settings, obj);
@@ -490,7 +487,7 @@ function prependNamespace(namespace, next) {
   if (next.startsWith('/')) {
     return next.slice(1);
   } else {
-    return _.join(_.compact([namespace, next]), '/')
+    return _.join(_.compact([namespace, next]), '/');
   }
 }
 
@@ -520,8 +517,8 @@ jsHarmonyTestScreenshot.prototype.runTests = async function (tests, fpath, cb) {
       },
       function (err) {
         if (browser) {
-           browser.close();
-           delete browser;
+          browser.close();
+          browser = undefined;
         }
         if (err) {
           _this.error(err);

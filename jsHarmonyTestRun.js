@@ -45,14 +45,14 @@ function CommandError(message, command) {
   this.message = message;
   this.command = command;
   // Use V8's native method if available, otherwise fallback
-  if ("captureStackTrace" in Error)
-      Error.captureStackTrace(this, this.constructor);
+  if ('captureStackTrace' in Error)
+    Error.captureStackTrace(this, this.constructor);
   else
-      this.stack = (new Error()).stack;
+    this.stack = (new Error()).stack;
 }
 
 CommandError.prototype = Object.create(Error.prototype);
-CommandError.prototype.name = "CommandError";
+CommandError.prototype.name = 'CommandError';
 CommandError.prototype.constructor = CommandError;
 
 jsHarmonyTestRun.CommandError = CommandError;
@@ -150,7 +150,7 @@ async function getValue(valueGetter, page) {
 
   var property = valueGetter.property;
   if (property == 'text') property = 'textContent';
-  var value = await page.$eval(valueGetter.element, function(el, property) {return el[property]}, property);
+  var value = await page.$eval(valueGetter.element, function(el, property) {return el[property];}, property);
 
   if (regex) {
     var result = regex.exec(value);
@@ -207,7 +207,7 @@ jsHarmonyTestRun.prototype.command_screenshot = async function(command, page, va
   var fname = screenshotSpec.generateFilename(this.screenshotConfig.id + '_' + command.id);
   var screenshotPath = path.join(this.screenshotConfig.path, fname);
   await screenshotSpec.generateScreenshot(page, this.jsh, screenshotPath);
-  _.forEach(screenshotSpec.testErrors, function(err) {err.command = command});
+  _.forEach(screenshotSpec.testErrors, function(err) {err.command = command;});
   return {
     errors: screenshotSpec.testErrors,
     warnings: screenshotSpec.testWarnings,
@@ -232,7 +232,7 @@ jsHarmonyTestRun.prototype.command_wait = async function(command, page, variable
     } else {
       return asError('wait arguments did not evaluate to a wait condition', command);
     }
-    var result = await this.runCommandSeries(command.while_waiting || [], page, variables)
+    var result = await this.runCommandSeries(command.while_waiting || [], page, variables);
     await waitCondition;
     return result;
   } catch (e) {
@@ -247,9 +247,8 @@ jsHarmonyTestRun.prototype.command_input = async function(command, page, variabl
   try {
     // TODO
     // enter
-    var type = await page.$eval(command.element, function(el) {return el.type});
+    var type = await page.$eval(command.element, function(el) {return el.type;});
     if (type == 'checkbox') {
-      var value;
       if (value === true || value == 'true') value = true;
       else if (value === false || value == 'false') value = false;
       else return asError('input checkbox invalid value', command);
@@ -302,14 +301,12 @@ jsHarmonyTestRun.prototype.command_js = async function(command, page, variables)
   try {
     var func_command = parseHandler(this.jsh, command.js, ['jsh', 'page', 'cb'], 'command', command.sourcePath);
     var callbackValue;
-    await new Promise(async function(resolve) {
+    await new Promise(function(resolve, reject) {
       var result = func_command(this.jsh,page,function(ret) {
         callbackValue = ret; resolve();
       });
       if (result && result.then) {
-        try {await result;}
-        catch (e) {callbackValue = e;}
-        resolve();
+        return result.then(resolve, reject);
       }
       // else wait on the callback.
     });
@@ -321,7 +318,6 @@ jsHarmonyTestRun.prototype.command_js = async function(command, page, variables)
   } catch(e) {
     return asError(e, command);
   }
-  return {};
 };
 
 jsHarmonyTestRun.prototype.command_assert = async function(command, page, variables) {
@@ -352,7 +348,7 @@ jsHarmonyTestRun.prototype.command_assert = async function(command, page, variab
 jsHarmonyTestRun.prototype.runCommand = async function (command, page, variables) {
   if (jsHarmonyTestRun.commands.indexOf(command.exec) != -1) return this['command_'+command.exec](command, page, variables);
   else return { errors: ['Unknown command: ' + command.exec] };
-}
+};
 
 jsHarmonyTestRun.prototype.runCommandSeries = async function (commands, page, variables) {
   if (!commands || commands.length < 1) return {warnings: [], errors: [], screenshots: []};
@@ -369,22 +365,21 @@ jsHarmonyTestRun.prototype.runCommandSeries = async function (commands, page, va
   }
 
   return {
-    warnings: results.flatMap(function(res) { return res.warnings || [] }),
-    errors: results.flatMap(function(res) { return res.errors || [] }),
-    screenshots: results.flatMap(function(res) { return res.screenshots || [] }),
+    warnings: results.flatMap(function(res) { return res.warnings || []; }),
+    errors: results.flatMap(function(res) { return res.errors || []; }),
+    screenshots: results.flatMap(function(res) { return res.screenshots || []; }),
   };
-}
+};
 
 jsHarmonyTestRun.prototype.run = async function (commands, variables) {
   var _this = this;
-  let results = [];
 
   let result = await this.runCommandSeries(commands, this.page, variables);
 
-  result.warnings.forEach(function(w) { _this.testWarnings.push(w) });
-  result.errors.forEach(function(e) { _this.testErrors.push(e) });
-  result.screenshots.forEach(function(s) { _this.screenshots.push(s) });
-}
+  result.warnings.forEach(function(w) { _this.testWarnings.push(w); });
+  result.errors.forEach(function(e) { _this.testErrors.push(e); });
+  result.screenshots.forEach(function(s) { _this.screenshots.push(s); });
+};
 
 //Setup to run commands
 // We expect this to be run on only once per object, but allow the timing to be different from object creation because of puppeteer operations.
@@ -410,9 +405,9 @@ jsHarmonyTestRun.prototype.begin = async function (browser, cb) {
 jsHarmonyTestRun.prototype.end = async function (cb) {
   try {
     if (this.page) await this.page.close();
-    delete page;
+    delete this.page;
   } catch(e) {
-    delete page;
+    delete this.page;
     this.testErrors.push(e);
     if (cb) return cb(e);
   }

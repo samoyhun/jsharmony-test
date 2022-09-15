@@ -27,7 +27,6 @@ function jsHarmonyTestConfig(){
   this.loadTimeout = 30; // seconds
 
   this.testOnly = [];
-  this.screenshotOnly = [];
   this.before = [];
   this.after = [];
   this.additionalTestSearchPaths = [
