@@ -19,6 +19,7 @@ along with this package.  If not, see <http://www.gnu.org/licenses/>.
 
 var jsHarmonyTest = require('./jsHarmonyTest.js');
 var path = require('path');
+var fs = require('fs');
 var async = require('async');
 
 function jsHarmonyTestAPI(options){
@@ -68,6 +69,9 @@ function onConfigLoaded(jsh) {
 }
 
 jsHarmonyTestAPI.prototype.Init = function(cb){
+  // no point in logging to error - this will crash when attemping to write to the logfile anyway
+  if (!fs.existsSync(this.jsh.Config.appbasepath)) throw new Error('appbasepath "' + this.jsh.Config.appbasepath + '" does not exist. This likely means jsHarmonyTest was run on the wrong directory, or you have a typo in the configuration file.');
+  if (!fs.existsSync(this.jsh.Config.datadir)) throw new Error('datadir "' + this.jsh.Config.datadir + '" does not exist. Either jsHarmonyTest has been run on the wrong base directory, or you need to create the data directory.');
   this.jsh.Config.Init();
   onConfigLoaded(this.jsh);
 
