@@ -56,7 +56,7 @@ jsHarmonyTestLocalServer.prototype.executeCommand = function(command, cb) {
   } else if (typeof(command) == 'object') {
     this.executeShell(command, cb);
   } else {
-    this.jsh.Log.error('unknown command type', typeof(command));
+    this.jsh.Log.error('unknown command type ' + typeof(command), {ext: 'test'});
     cb('Unknown command type');
   }
 };
@@ -108,7 +108,7 @@ jsHarmonyTestLocalServer.prototype.waitForServerReady = function(url, loadTimeou
     else urlparts.port = 80;
   }
 
-  this.jsh.Log.info('Initializing and waiting for server to accept connections on ' + url);
+  this.jsh.Log.info('Initializing and waiting for server to accept connections on ' + url, {ext: 'test'});
 
   var endTime = new Date().getTime() + (loadTimeout || 30) * 1000;
   this.tryConnect({host: urlparts.hostname, port: urlparts.port, timeout: 1000}, endTime, cb);
@@ -139,7 +139,7 @@ jsHarmonyTestLocalServer.prototype.tryConnect = function(args, endTime, cb) {
           errmsg += '\r\n' + _this.commandLog[i];
         }
       }
-      _this.jsh.Log.error(errmsg);
+      _this.jsh.Log.error(errmsg, {ext: 'test'});
       if (cb) cb(err);
     }
   });

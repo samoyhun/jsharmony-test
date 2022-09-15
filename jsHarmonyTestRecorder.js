@@ -34,7 +34,7 @@ function jsHarmonyTestRecorder(api, options){
 jsHarmonyTestRecorder.prototype.LaunchPuppeteer = function(options, callback){
   var _this = this;
   _this.jsh.Extensions.report.getPuppeteer(function(err, puppeteer){
-    if(err){ _this.jsh.Log.error(err.toString()); return callback(new Error(err.toString())); }
+    if(err){ _this.jsh.Log.error(err.toString(), {ext: 'test'}); return callback(new Error(err.toString())); }
     var launchParams = _.extend({ ignoreHTTPSErrors: true, headless: false }, options);
     puppeteer.launch(launchParams)
       .then(function(rslt){
@@ -45,7 +45,7 @@ jsHarmonyTestRecorder.prototype.LaunchPuppeteer = function(options, callback){
         _this.browserreqcount = 0;
         return callback(null, _this.browser);
       })
-      .catch(function(err){ _this.jsh.Log.error(err); return callback(err); });
+      .catch(function(err){ _this.jsh.Log.error(err, {ext: 'test'}); return callback(err); });
   });
 };
 
@@ -223,7 +223,7 @@ jsHarmonyTestRecorder.prototype.Run = function(callback){
       })();
     },
   ], function(err){
-    if(err) _this.jsh.Log.error(err);
+    if(err) _this.jsh.Log.error(err, {ext: 'test'});
     logAction('Done');
     process.exit(0);
   });

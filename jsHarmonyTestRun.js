@@ -185,7 +185,7 @@ jsHarmonyTestRun.commands = [
 jsHarmonyTestRun.prototype.command_navigate = async function(command, page, variables) {
   if (typeof(command.url) != 'string') return asError('navigate missing url', command);
   var fullurl = substituteVariables(variables, new URL(command.url, this.server).toString());
-  this.jsh.Log.info(fullurl);
+  this.jsh.Log.info(fullurl, {ext: 'test'});
   var resp = await page.goto(fullurl);
   if (resp._status <='304'){
     return {};
@@ -277,7 +277,7 @@ jsHarmonyTestRun.prototype.command_set = async function(command, page, variables
     var got = await getValue(command.value, page);
     if (got.errors) return got;
     variables[command.variable] = got.value;
-    this.jsh.Log.info(command.variable + ' = ' + got.value);
+    this.jsh.Log.info(command.variable + ' = ' + got.value, {ext: 'test'});
   } catch(e) {
     return asError(e, command);
   }

@@ -47,7 +47,7 @@ function jsHarmonyTestScreenshot(_jsh, settings, _test_spec_path, _test_data_pat
     };
   }
   if (!settings) {
-    _jsh.Log.warning('jsHarmonyTestScreenshot: No settings provided');
+    _jsh.Log.warning('jsHarmonyTestScreenshot: No settings provided', {ext: 'test'});
     settings = {};
   }
 
@@ -98,15 +98,15 @@ jsHarmonyTestScreenshot.prototype.reviewFilePath = function() {
 };
 
 jsHarmonyTestScreenshot.prototype.info = function(txt, options) {
-  this.jsh.Log.info(txt, options);
+  this.jsh.Log.info(txt, _.extend({ext: 'test'}, options));
 };
 
 jsHarmonyTestScreenshot.prototype.warning = function(txt, options) {
-  this.jsh.Log.warning(txt, options);
+  this.jsh.Log.warning(txt, _.extend({ext: 'test'}, options));
 };
 
 jsHarmonyTestScreenshot.prototype.error = function(txt, options) {
-  this.jsh.Log.error(txt, options);
+  this.jsh.Log.error(txt, _.extend({ext: 'test'}, options));
 };
 
 jsHarmonyTestScreenshot.prototype.reportErrors = function(tests, runs) {
@@ -477,9 +477,9 @@ jsHarmonyTestScreenshot.prototype.parseTests = function(fpath, namespace, settin
     warningCount = warningCount + testSpec.importWarnings.length;
 
     if (warningCount > 0) {
-      _this.jsh.Log.warning('Warnings importing ' + fpath);
+      _this.warning('Warnings importing ' + fpath);
       _.forEach(file_test_specs, function(testSpec) {
-        _.forEach(testSpec.importWarnings, function(x) {_this.jsh.Log.warning(x);});
+        _.forEach(testSpec.importWarnings, function(x) {_this.warning(x);});
       });
     }
 
@@ -641,7 +641,7 @@ jsHarmonyTestScreenshot.prototype.gmCompareImageFilesWrapper = function (srcpath
           img.img.extent(sizeout.width, sizeout.height);
           img.img.repage(0, 0, 0, 0);
           img.img.noProfile().write(path, function (err) {
-            if (err) jsh.Log.error(err);
+            if (err) jsh.Log.error(err, {ext: 'test'});
             if (err) return cb(err);
             getImage(path, cb);
           });

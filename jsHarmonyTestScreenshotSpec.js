@@ -216,7 +216,7 @@ jsHarmonyTestScreenshotSpec.prototype.generateScreenshot = async function (page,
     }
     if (!_.isEmpty(this.beforeScreenshot)){
       // beforeScreenshot:function(jsh, page, cb, cropRectangle){
-      //     page.click('.xsearch_column').then(cb).catch(function (err) { jsh.Log.error(err); return cb() });
+      //     page.click('.xsearch_column').then(cb).catch(function (err) { jsh.Log.error(err, {ext: 'test'}); return cb() });
       // }
       // "beforeScreenshot": "function(jsh, page, cb, cropRectangle){return page.click('.xsearchbutton.xsearchbuttonjsHarmonyFactory_QNSSL1');}"
       var func_beforeScreenshot = parseHandler(jsh, this.beforeScreenshot, ['jsh', 'page', 'cb', 'cropRectangle'], 'beforeScreenshot', this.sourcePath);

@@ -55,6 +55,8 @@ function jsHarmonyTestAPI(options){
     }
   }
 
+  if (!datadir.endsWith(path.sep)) datadir = datadir + path.sep;
+
   jsh.Config.appbasepath = appbasepath;
   jsh.Config.datadir = datadir;
 }
@@ -66,6 +68,7 @@ function onConfigLoaded(jsh) {
 }
 
 jsHarmonyTestAPI.prototype.Init = function(cb){
+  this.jsh.Config.Init();
   onConfigLoaded(this.jsh);
 
   if(cb) return cb();
