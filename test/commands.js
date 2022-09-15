@@ -42,6 +42,15 @@ async function getBrowser() {
   }
 }
 
+function assertError(actual, expected, message) {
+  if (!expected) return assert.equal(actual, expected, message);
+  if (actual && expected) {
+    assert.equal(actual.length, expected.length, message);
+    actual = actual.map(function(e) {return e.message;});
+    assert.deepEqual(actual, expected, message);
+  }
+}
+
 describe('commands', function() {
   this.timeout(4000);
   var screenshotDir = __dirname+'/data';
@@ -57,11 +66,14 @@ describe('commands', function() {
     this.browser = await getBrowser();
     this.page = await this.browser.newPage();
     this.page.on('console', function(msg) {console.log('browser: ', msg.text());});
-    this.testRun = new jsHarmonyTestRun('file://'+__dirname+'/', 'test', screenshotDir, jsh);
+    this.testRun = new jsHarmonyTestRun('file://'+__dirname+'/', jsh, {
+      id: 'test',
+      path: screenshotDir,
+    });
 
     // navigate here, because everything else needs a page
     var result = await this.testRun.runCommand({exec: 'navigate', url: 'commands.html'}, this.page, {});
-    assert.deepEqual(result.errors, undefined);
+    assertError(result.errors, undefined);
   });
   after(async function() {
     if (this.page) await this.page.close();
@@ -71,54 +83,67 @@ describe('commands', function() {
   });
 
   it('screenshot', async function() {
-    var imagePath = screenshotDir+'/test_950_700.png';
-    await fs.promises.unlink(imagePath);
-    var result = await this.testRun.runCommand({exec: 'screenshot', id: 'test'}, this.page, {});
-    assert.deepEqual(result.errors, []);
+    var imagePath = screenshotDir+'/test_image_950_700.png';
+    try {
+      if (await fs.promises.access(imagePath)) await fs.promises.unlink(imagePath);
+    } catch {};
+    var result = await this.testRun.runCommand({exec: 'screenshot', id: 'image'}, this.page, {});
+    assertError(result.errors, []);
+    await fs.promises.access(imagePath); // throws on access failure
+  });
+
+  it('base screenshot', async function() {
+    this.testRun.screenshotConfig.screenshot = {width: 360};
+    var imagePath = screenshotDir+'/test_base_360_700.png';
+    try {
+      if (await fs.promises.access(imagePath)) await fs.promises.unlink(imagePath);
+    } catch {};
+    var result = await this.testRun.runCommand({exec: 'screenshot', id: 'base'}, this.page, {});
+    assertError(result.errors, []);
     await fs.promises.access(imagePath); // throws on access failure
   });
 
   it('wait', async function() {
     var result = await this.testRun.runCommand({exec: 'wait', element: '#loaded'}, this.page, {});
-    assert.deepEqual(result.errors, []);
+    assertError(result.errors, []);
   });
 
   it('wait - while waiting', async function() {
     this.timeout(1000);
     var result = await this.testRun.runCommand({exec: 'wait', element: '#inserted', while_waiting: [{exec: 'js', js: 'return page.$eval("#container", function(el) {el.innerHTML = \'<div id="inserted"></div>\'});'}]}, this.page, {});
-    assert.deepEqual(result.errors, []);
+    assertError(result.errors, []);
   });
 
   it('input - text', async function() {
     var result = await this.testRun.runCommand({exec: 'input', element: '#text', value: 'text'}, this.page, {});
-    assert.deepEqual(result.errors, undefined);
+    assertError(result.errors, undefined);
   });
 
   it('input - checkbox', async function() {
     var result = await this.testRun.runCommand({exec: 'input', element: '#checkbox', value: true}, this.page, {});
-    assert.deepEqual(result.errors, undefined);
+    assertError(result.errors, undefined);
   });
 
   it('input - select', async function() {
     var result = await this.testRun.runCommand({exec: 'input', element: 'select', value: '1'}, this.page, {});
-    assert.deepEqual(result.errors, undefined);
+    assertError(result.errors, undefined);
   });
 
   it('click', async function() {
     var result = await this.testRun.runCommand({exec: 'click', element: '#checkbox'}, this.page, {});
-    assert.deepEqual(result.errors, undefined);
+    assertError(result.errors, undefined);
   });
 
   it('set', async function() {
     var variables = {};
     var result = await this.testRun.runCommand({exec: 'set', variable: 'var', value: {element: '#var', property: 'text'}}, this.page, variables);
-    assert.deepEqual(result.errors, undefined);
+    assertError(result.errors, undefined);
     assert.equal(variables.var, 'value');
   });
 
   it('js - callback success', async function() {
     var result = await this.testRun.runCommand({exec: 'js', js: 'cb()'}, this.page, {});
-    assert.deepEqual(result.errors, undefined);
+    assertError(result.errors, undefined);
   });
 
   it('js - callback failure', async function() {
@@ -131,7 +156,7 @@ describe('commands', function() {
 
   it('js - promise success', async function() {
     var result = await this.testRun.runCommand({exec: 'js', js: 'return new Promise(function(resolve,reject){ resolve(); });'}, this.page, {});
-    assert.deepEqual(result.errors, undefined);
+    assertError(result.errors, undefined);
   });
 
   it('js - promise failure', async function() {
@@ -144,7 +169,7 @@ describe('commands', function() {
 
   it('assert', async function() {
     var result = await this.testRun.runCommand({exec: 'assert', element: '#loaded', text: 'Loaded'}, this.page, {});
-    assert.deepEqual(result.errors, undefined);
+    assertError(result.errors, undefined);
   });
 
 });

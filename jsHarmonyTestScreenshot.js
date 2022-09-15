@@ -507,7 +507,11 @@ jsHarmonyTestScreenshot.prototype.runTests = async function (tests, fpath, cb) {
   await new Promise((resolve,reject) => {
     async.eachLimit(tests, 1,
       async function (test_spec) {
-        var run = new jsHarmonyTestRun(test_spec.server || _this.settings.server, test_spec.id, fpath, _this.jsh);
+        var run = new jsHarmonyTestRun(test_spec.server || _this.settings.server, _this.jsh, {
+          id: test_spec.id,
+          path: fpath,
+          screenshot: test_spec.screenshot,
+        });
         await run.begin(browser);
         await run.run(test_spec.before, _this.settings.variables);
         await run.run(test_spec.commands, _this.settings.variables);

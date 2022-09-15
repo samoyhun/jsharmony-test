@@ -20,10 +20,7 @@ along with this package.  If not, see <http://www.gnu.org/licenses/>.
 var _ = require('lodash');
 var async = require('async');
 
-//  Parameters:
-//    _id: id of screenshot (eventual base for filename)
-function jsHarmonyTestScreenshotSpec(_id){
-  this.id = _id;       //id of screenshot (eventual base for filename)
+function jsHarmonyTestScreenshotSpec(){
   this.sourcePath; // path to the file that defined the test
   this.url = ''; //Relative or absolute URL, including querystring
   this.batch = null;
@@ -135,11 +132,10 @@ const generateHoverDiv = function(dimensions){
 //Parse a JSON object and return a jsHarmonyTestScreenshotSpec object
 //  Ensure the spec is correct and has no extra fields
 //  Parameters:
-//    id: id of screenshot (eventual base for filename)
 //    obj: The JSON object
 //Returns a jsHarmonyTestScreenshotSpec object
-jsHarmonyTestScreenshotSpec.fromJSON = function(id, obj){
-  let jsTS = new jsHarmonyTestScreenshotSpec(id);
+jsHarmonyTestScreenshotSpec.fromJSON = function(obj){
+  let jsTS = new jsHarmonyTestScreenshotSpec();
   let warnings = [];
   _.forEach(_.keys(obj), function(key) {
     if (!(key in allowedProperties)) {
@@ -155,9 +151,9 @@ function sanitizePath(string) {
   return string.replace(/[^0-9A-Za-z]/g, '_');
 }
 
-jsHarmonyTestScreenshotSpec.prototype.generateFilename = function(){
+jsHarmonyTestScreenshotSpec.prototype.generateFilename = function(id){
   //Generate file name
-  var fname = sanitizePath(this.id);
+  var fname = sanitizePath(id);
   if(this.width) fname += '_' + this.width;
   if(this.height) fname += '_' + this.height;
   fname += '.png';

@@ -23,14 +23,16 @@ var path = require('path');
 
 //  Parameters:
 //    _base_url: server address the test will run against
-//    _id: id of test
-//    _screenshotDir
 //    _jsh: jsharmony, used for image processing, and js commands
+//    _screenshotConfig: {
+//      id: test id, string included in screenshot filenames
+//      path: screenshot base output path
+//      screenshot: screenshot properties object included in all screenshots
+//    }
 
-function jsHarmonyTestRun(_server,_id,_screenshotDir, _jsh){
+function jsHarmonyTestRun(_server,_jsh, _screenshotConfig){
   this.server = _server;
-  this.id = _id;
-  this.screenshotDir = _screenshotDir;
+  this.screenshotConfig = _screenshotConfig;
   this.jsh = _jsh;
 
   this.page = null;
@@ -196,9 +198,13 @@ jsHarmonyTestRun.prototype.command_navigate = async function(command, page, vari
 
 jsHarmonyTestRun.prototype.command_screenshot = async function(command, page, variables) {
   if (typeof(command.id) != 'string') return asError('screenshot missing id', command);
-  var screenshotSpec = jsHarmonyTestScreenshotSpec.fromJSON(this.id + '_' + command.id, command);
-  var fname = screenshotSpec.generateFilename();
-  var screenshotPath = path.join(this.screenshotDir, fname);
+  if (typeof(this.screenshotConfig) != 'object') return {warnings: ['screenshots no configured']};
+  if (typeof(this.screenshotConfig.id) != 'string') return {warnings: ['screenshot config missing test id']};
+  if (typeof(this.screenshotConfig.path) != 'string') return {warnings: ['screenshot config missing output path']};
+  var obj = _.extend({}, this.screenshotConfig.screenshot, command);
+  var screenshotSpec = jsHarmonyTestScreenshotSpec.fromJSON(obj);
+  var fname = screenshotSpec.generateFilename(this.screenshotConfig.id + '_' + command.id);
+  var screenshotPath = path.join(this.screenshotConfig.path, fname);
   await screenshotSpec.generateScreenshot(page, this.jsh, screenshotPath);
   _.forEach(screenshotSpec.testErrors, function(err) {err.command = command});
   return {

@@ -39,7 +39,7 @@ function jsHarmonyTestConfig(){
 
   this.variables = {};
 
-  this.base_screenshot = {
+  this.screenshot = {
     // "url": "",  // must be provided from config file should not be included here
     // "batch": 0,
     // "x": 0,
