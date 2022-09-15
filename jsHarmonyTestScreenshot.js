@@ -167,13 +167,12 @@ jsHarmonyTestScreenshot.prototype.generateMaster = async function (cb) {
   var errText = this.reportErrors(tests, runs);
   if(errText) this.info(errText);
 
-  //let images = this.prepareReview(tests);
+  let images = this.prepareReview(runs);
 
-  //if(!images.length) this.info('No screenshots generated');
-  //else if(!errText) this.info('Master screenshots generated');
+  if(!images.length) this.info('No screenshots generated');
+  else if(!errText) this.info('Master screenshots generated');
 
-  //this.generateReview(images, errText, cb);
-  cb();
+  this.generateReview(images, errText, cb);
 };
 
 //Generate the "comparison" set of screenshots, in the "test_data_path/comparison" folder
@@ -684,10 +683,11 @@ jsHarmonyTestScreenshot.prototype.gmCompareImageFilesWrapper = function (srcpath
   });
 };
 
-jsHarmonyTestScreenshot.prototype.prepareReview = function(tests) {
-  return _.map(tests, function(screenshot_spec) {
-    var fname = screenshot_spec.generateFilename();
-    return {image_file: fname};
+jsHarmonyTestScreenshot.prototype.prepareReview = function(runs) {
+  return _.flatMap(runs, function(run) {
+    return _.map(run.screenshots, function(screenshot) {
+      return {image_file: screenshot.filename};
+    });
   });
 };
 

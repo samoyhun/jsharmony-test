@@ -38,6 +38,7 @@ function jsHarmonyTestRun(_server,_jsh, _screenshotConfig){
   this.page = null;
   this.testWarnings = [];
   this.testErrors = [];
+  this.screenshots = [];
 }
 
 function CommandError(message, command) {
@@ -210,6 +211,7 @@ jsHarmonyTestRun.prototype.command_screenshot = async function(command, page, va
   return {
     errors: screenshotSpec.testErrors,
     warnings: screenshotSpec.testWarnings,
+    screenshots: [{path: screenshotPath, filename: fname}],
   };
 };
 
@@ -353,7 +355,7 @@ jsHarmonyTestRun.prototype.runCommand = async function (command, page, variables
 }
 
 jsHarmonyTestRun.prototype.runCommandSeries = async function (commands, page, variables) {
-  if (!commands || commands.length < 1) return {warnings: [], errors: []};
+  if (!commands || commands.length < 1) return {warnings: [], errors: [], screenshots: []};
 
   var _this = this;
   let results = [];
@@ -369,6 +371,7 @@ jsHarmonyTestRun.prototype.runCommandSeries = async function (commands, page, va
   return {
     warnings: results.flatMap(function(res) { return res.warnings || [] }),
     errors: results.flatMap(function(res) { return res.errors || [] }),
+    screenshots: results.flatMap(function(res) { return res.screenshots || [] }),
   };
 }
 
@@ -380,6 +383,7 @@ jsHarmonyTestRun.prototype.run = async function (commands, variables) {
 
   result.warnings.forEach(function(w) { _this.testWarnings.push(w) });
   result.errors.forEach(function(e) { _this.testErrors.push(e) });
+  result.screenshots.forEach(function(s) { _this.screenshots.push(s) });
 }
 
 //Setup to run commands
