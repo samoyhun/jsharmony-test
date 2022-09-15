@@ -33,44 +33,44 @@ describe('path configuration', function() {
     it('default values', function() {
       var api = new jsHarmonyTestAPI({});
       assert.equal(api.jsh.Config.appbasepath, path.resolve(''));
-      assert.equal(api.jsh.Config.datadir, path.resolve('data'));
+      assert.equal(api.jsh.Config.datadir, path.resolve('data')+path.sep);
     });
     it('test folder', function() {
       var api = new jsHarmonyTestAPI({testFolderPath: 'test/path'});
       assert.equal(api.jsh.Config.appbasepath, path.resolve('test/path'));
-      assert.equal(api.jsh.Config.datadir, path.resolve('test/path/data'));
+      assert.equal(api.jsh.Config.datadir, path.resolve('test/path/data')+path.sep);
     });
     it('loaded an explicit config file', function() {
       var api = new jsHarmonyTestAPI({configPath: 'test/config/_exists.json'});
       assert.equal(api.jsh.Config.appbasepath, path.resolve(''));
-      assert.equal(api.jsh.Config.datadir, path.resolve('data'));
+      assert.equal(api.jsh.Config.datadir, path.resolve('data')+path.sep);
       assert(api.jsh.Modules['jsHarmonyTest'].Config.exists, 'value from config file set');
     });
     it('loaded an implicit config file', function() {
       var api = new jsHarmonyTestAPI({testFolderPath: 'test/config/exists'});
       assert.equal(api.jsh.Config.appbasepath, path.resolve('test/config/exists'));
-      assert.equal(api.jsh.Config.datadir, path.resolve('test/config/exists/data'));
+      assert.equal(api.jsh.Config.datadir, path.resolve('test/config/exists/data')+path.sep);
       assert(api.jsh.Modules['jsHarmonyTest'].Config.exists, 'value from config file set');
     });
     it('config with appbasepath', function() {
       var api = new jsHarmonyTestAPI({configPath: 'test/config/_appbasepath.json'});
       assert.equal(api.jsh.Config.appbasepath, path.resolve('test/config/base'));
-      assert.equal(api.jsh.Config.datadir, path.resolve('test/config/base/data'));
+      assert.equal(api.jsh.Config.datadir, path.resolve('test/config/base/data')+path.sep);
     });
     it('config with datadir', function() {
       var api = new jsHarmonyTestAPI({configPath: 'test/config/_datadir.json'});
       assert.equal(api.jsh.Config.appbasepath, path.resolve(''));
-      assert.equal(api.jsh.Config.datadir, path.resolve('test/config/datadir'));
+      assert.equal(api.jsh.Config.datadir, path.resolve('test/config/datadir')+path.sep);
     });
     it('config with both', function() {
       var api = new jsHarmonyTestAPI({configPath: 'test/config/_paths.json'});
       assert.equal(api.jsh.Config.appbasepath, path.resolve('test/config/base'));
-      assert.equal(api.jsh.Config.datadir, path.resolve('test/config/datadir'));
+      assert.equal(api.jsh.Config.datadir, path.resolve('test/config/datadir')+path.sep);
     });
     it('parent dir', function() {
       var api = new jsHarmonyTestAPI({configPath: 'test/config/_parent.json'});
       assert.equal(api.jsh.Config.appbasepath, path.resolve('.'));
-      assert.equal(api.jsh.Config.datadir, path.resolve('test/datadir'));
+      assert.equal(api.jsh.Config.datadir, path.resolve('test/datadir')+path.sep);
     });
 
     describe('internal screenshots object paths', function() {
