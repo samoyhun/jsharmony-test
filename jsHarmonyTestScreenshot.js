@@ -291,6 +291,9 @@ function sortTests(tests) {
     changes = 0;
     items.forEach(function(item) {
       item.test.require.forEach(function(req) {
+        if (!map[req]) {
+          throw 'test "' + item.id + '" requires id "' + req + '" but it was not found in [' + _.keys(map).join(',') + ']';
+        }
         map[req].hasDependents = true;
         var depth = map[req].requireDepth + 1;
         if (depth > item.requireDepth) {
@@ -366,7 +369,14 @@ jsHarmonyTestScreenshot.prototype.loadTests = async function (cb) {
     _this.warning('No tests defined. Place test JSON files in ' + local_path);
   }
 
-  tests = sortTests(tests);
+  try {
+    tests = sortTests(tests);
+  } catch (e) {
+    this.error(e);
+    if (cb) return cb(e, []);
+    else return [];
+  }
+
   if (cb) cb(null, tests);
   else return tests;
 };
@@ -469,6 +479,11 @@ jsHarmonyTestScreenshot.prototype.parseTests = function(fpath, namespace, settin
     const obj = _.extend({}, file_test);
     const testSpec = jsHarmonyTestSpec.fromJSON(file_test_id, fpath, settings, obj);
     testSpec.id = prependNamespace(namespace, testSpec.id);
+    if (testSpec.require) {
+      testSpec.require = testSpec.require.map(function(id) {
+        return prependNamespace(namespace, id);
+      });
+    }
     file_test_specs.push(testSpec);
     warningCount = warningCount + testSpec.importWarnings.length;
 
