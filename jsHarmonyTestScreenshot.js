@@ -256,16 +256,16 @@ jsHarmonyTestScreenshot.prototype.runComparison = async function (cb) {
   catch(ex){
     testError = ex;
   }
-  _this.compareImages(function (err, failImages) {
+  _this.compareImages(function (err, failImages, comparedImages) {
     if (err) {
       _this.error(err);
       return cb(err);
     }
     log.info('# fail: ' + failImages.length);
-    if(!failImages.length) _this.info('Screenshot tests completed successfully');
+    if(!failImages.length && comparedImages.length) _this.info('Screenshot tests completed successfully');
     _this.generateReport(failImages, testError, function() {
-      if (failImages.length > 0) return _this.sendErrorEmail(failImages, testError, cb);
-      return cb(null, failImages.length);
+      if (failImages.length > 0) return _this.sendErrorEmail(failImages, testError, function(emailErr) {cb(emailErr, failImages.length, comparedImages.length);});
+      return cb(null, failImages.length, comparedImages.length);
     });
   });
 };
@@ -565,6 +565,7 @@ jsHarmonyTestScreenshot.prototype.compareImages = function (cb) {
   let path_comparison = _this.screenshotsComparisonDir();
   let path_diff = _this.screenshotsDiffDir();
   let failImages = [];
+  let comparedImages = [];
   let files = [];
   let files_comp = [];
   try {
@@ -596,6 +597,7 @@ jsHarmonyTestScreenshot.prototype.compareImages = function (cb) {
         let master = path.join(path_master, imageName);
         let comparison = path.join(path_comparison, imageName);
         let diff = path.join(path_diff, imageName);
+        comparedImages.push({image_file: imageName});
     
         return _this.gmCompareImageFilesWrapper(master, comparison, 0)
           .then(function (isEqual) {
@@ -616,7 +618,7 @@ jsHarmonyTestScreenshot.prototype.compareImages = function (cb) {
             return each_cb();
           });
       }
-    }, function(err) {cb(err, failImages);});
+    }, function(err) {cb(err, failImages, comparedImages);});
 };
 
 jsHarmonyTestScreenshot.prototype.gmCompareImageFilesWrapper = function (srcpath, cmppath, options) {
@@ -772,8 +774,8 @@ jsHarmonyTestScreenshot.prototype.generateReview = function (images, errText, cb
 jsHarmonyTestScreenshot.prototype.sendErrorEmail = function (diff, errText, cb) {
   let _this = this;
   if (!cb) cb = function() {};
-  if(!_this.platform.Config.error_email) return cb(null, diff.length);
-  if(!_this.platform.SendEmail) return cb(null, diff.length);
+  if(!_this.platform.Config.error_email) return cb();
+  if(!_this.platform.SendEmail) return cb();
   if(_this.isSendingEmail){
     setTimeout(function(){ _this.sendErrorEmail(diff, errText, cb); }, 100);
     return;
@@ -789,7 +791,7 @@ jsHarmonyTestScreenshot.prototype.sendErrorEmail = function (diff, errText, cb) 
   _this.platform.SendEmail(mparams, function(){
     _this.info('Email sent');
     _this.isSendingEmail = false;
-    if(cb) cb(null, diff.length);
+    if(cb) cb();
   });
 };
 

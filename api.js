@@ -122,12 +122,12 @@ jsHarmonyTestAPI.prototype.runComparison = function(cb){
   async.waterfall([
     function(net_cb) { server.waitForServerReady(settings.server, settings.loadTimeout || 30, net_cb); },
     function(test_cb) { curtest.runComparison(test_cb); },
-    function(failCount, count_cb) {
+    function(failCount, comparedCount, count_cb) {
       if (failCount) process.exitCode = 1;
-      count_cb();
+      count_cb(null, !!failCount || !!comparedCount);
     },
-    function(open_cb) {
-      if (silent){ open_cb(); }
+    function(hasOutput, open_cb) {
+      if (silent || !hasOutput){ open_cb(); }
       else{ openDocument(curtest.resultFilePath(), open_cb); }
     },
   ], function(err) {
