@@ -523,6 +523,7 @@ jsHarmonyTestScreenshot.prototype.runTests = async function (tests, fpath, cb) {
           path: fpath,
           screenshot: test_spec.screenshot,
         });
+        run.id = test_spec.id;
         await run.begin(browser);
         await run.run(test_spec.before, _this.settings.variables);
         await run.run(test_spec.commands, _this.settings.variables);
