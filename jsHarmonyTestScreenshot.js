@@ -270,7 +270,8 @@ jsHarmonyTestScreenshot.prototype.runComparison = async function (cb) {
   });
 };
 
-function sortTests(tests) {
+function sortTests(tests, testOnly) {
+  testOnly = testOnly || [];
   var map = {};
   var items = tests.map(function(test) {
     var item = {
@@ -280,6 +281,7 @@ function sortTests(tests) {
       requireDepth: test.require.length ? 1 : 0,
       sortDepth: 0,
       hasDependents: false,
+      allowedByFilter: (testOnly.length < 1 || testOnly.indexOf(test.id) != -1),
     };
     map[test.id] = item;
     return item;
@@ -295,6 +297,10 @@ function sortTests(tests) {
           throw 'test "' + item.id + '" requires id "' + req + '" but it was not found in [' + _.keys(map).join(',') + ']';
         }
         map[req].hasDependents = true;
+        if (item.allowedByFilter && !map[req].allowedByFilter) {
+          changes = changes + 1;
+          map[req].allowedByFilter = true;
+        }
         var depth = map[req].requireDepth + 1;
         if (depth > item.requireDepth) {
           changes = changes + 1;
@@ -303,6 +309,8 @@ function sortTests(tests) {
       });
     });
   } while (changes > 0 && crazy++ < items.length);
+
+  items = items.filter(function(item) {return item.allowedByFilter});
 
   var batchDepth = {};
   items.forEach(function(item) {
@@ -370,7 +378,7 @@ jsHarmonyTestScreenshot.prototype.loadTests = async function (cb) {
   }
 
   try {
-    tests = sortTests(tests);
+    tests = sortTests(tests, _this.settings.testOnly);
   } catch (e) {
     this.error(e);
     if (cb) return cb(e, []);
@@ -434,7 +442,6 @@ jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (namespace,
   try {
     let settings = await _this.loadConfigInFolder(folderPath, parentSettings);
     if (settings.namespace) namespace = settings.namespace;
-    let testOnly = settings.testOnly || [];
 
     var files = await fs.promises.readdir(folderPath);
     await Promise.all(files.map(async function(fname) {
@@ -445,7 +452,6 @@ jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (namespace,
       } else {
         if (fname.startsWith('_')) return;
         if (fname.substring(fname.length-5) !== '.json') return;
-        if (testOnly.length > 0 && testOnly.indexOf(fname) == -1) return;
         await new Promise((resolve,reject) => {
           _this.parseTests(fullpath, namespace, settings, function(err, newTests) {
             testChunks.push(newTests);
