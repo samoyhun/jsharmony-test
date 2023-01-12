@@ -167,8 +167,16 @@ async function getValue(valueGetter, page) {
 function substituteVariables(variables, value) {
   if (!(typeof(value) == 'string' && value.match('@'))) return value;
 
+  var pairs = [];
   for (var name in variables) {
-    value = value.replace(new RegExp('@'+name, 'g'), variables[name]);
+    pairs.push({name: name, value: variables[name]});
+  }
+
+  pairs = _.sortBy(pairs, function(bind) {return -bind.name.length});
+
+  for (var i in pairs) {
+    var bind = pairs[i];
+    value = value.replace(new RegExp('@'+bind.name, 'g'), bind.value);
   }
 
   return value;
