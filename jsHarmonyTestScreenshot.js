@@ -17,7 +17,8 @@ You should have received a copy of the GNU Lesser General Public License
 along with this package.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-var jsHarmonyTestSpec = require('./jsHarmonyTestScreenshotSpec.js');
+var jsHarmonyTestSpec = require('./jsHarmonyTestSpec.js');
+var jsHarmonyTestRun = require('./jsHarmonyTestRun.js');
 var _ = require('lodash');
 var ejs = require('ejs');
 var fs = require('fs');
@@ -28,10 +29,12 @@ var HelperFS = require('jsharmony/HelperFS');
 //  Parameters:
 //    jsh: The jsHarmony Server object
 //    settings: settings object, e.g. jsHarmonyTestConfig
-//    _test_config_path: Path to the test screenshots config folder
+//    _test_spec_path:   Path to the test screenshots tests folder
 //    _test_data_path:   Path to the test screenshots data folder
-function jsHarmonyTestScreenshot(_jsh, settings, _test_config_path, _test_data_path) {
-  
+//If this.test.config.server is undefined, use the following logic to get the server path:
+//var port = jsh.Config.server.http_port;
+//if(jsh.Servers['default'] && jsh.Servers['default'].servers && jsh.Servers['default'].servers.length) port = jsh.Servers['default'].servers[0].address().port;
+function jsHarmonyTestScreenshot(_jsh, settings, _test_spec_path, _test_data_path) {
   this.jsh = _jsh;
   if(_jsh) this.platform = _jsh;
   else{
@@ -44,17 +47,16 @@ function jsHarmonyTestScreenshot(_jsh, settings, _test_config_path, _test_data_p
     };
   }
   if (!settings) {
-    _jsh.Log.warning('jsHarmonyTestScreenshot: No settings provided');
+    _jsh.Log.warning('jsHarmonyTestScreenshot: No settings provided', {ext: 'test'});
     settings = {};
   }
 
   var data_folder = 'data';
-  var default_test_config_path = path.join('test', 'screenshots');
-  var default_test_data_config_path = path.join(data_folder, 'jsharmony-test/screenshots');
+  var default_test_spec_path = '';
+  var default_test_data_path = path.join(data_folder, 'jsharmony-test/screenshots');
 
-  this.browser = null;
-  this.test_config_path = path.normalize(((_.isEmpty(_test_config_path)) ? default_test_config_path : _test_config_path));
-  this.test_data_path = path.normalize(((_.isEmpty(_test_data_path)) ? default_test_data_config_path : _test_data_path));
+  this.test_spec_path = path.resolve(((_.isEmpty(_test_spec_path)) ? default_test_spec_path : _test_spec_path));
+  this.test_data_path = path.resolve(((_.isEmpty(_test_data_path)) ? default_test_data_path : _test_data_path));
 
   this.master_dir = 'master';
   this.comparison_dir = 'comparison';
@@ -62,6 +64,8 @@ function jsHarmonyTestScreenshot(_jsh, settings, _test_config_path, _test_data_p
 
   this.show_progress = true;
   this.show_browser = false;
+
+  this.settingWarnings = [];
 
   if (!settings.server) {
     var port = _jsh.Config.server.http_port;
@@ -94,22 +98,23 @@ jsHarmonyTestScreenshot.prototype.reviewFilePath = function() {
 };
 
 jsHarmonyTestScreenshot.prototype.info = function(txt, options) {
-  this.jsh.Log.info(txt, options);
+  this.jsh.Log.info(txt, _.extend({ext: 'test'}, options));
 };
 
 jsHarmonyTestScreenshot.prototype.warning = function(txt, options) {
-  this.jsh.Log.warning(txt, options);
+  this.jsh.Log.warning(txt, _.extend({ext: 'test'}, options));
 };
 
 jsHarmonyTestScreenshot.prototype.error = function(txt, options) {
-  this.jsh.Log.error(txt, options);
+  this.jsh.Log.error(txt, _.extend({ext: 'test'}, options));
 };
 
-jsHarmonyTestScreenshot.prototype.reportErrors = function(tests) {
+jsHarmonyTestScreenshot.prototype.reportErrors = function(tests, runs) {
   var rslt = '';
+  rslt += reportErrorsIn([this], 'settingWarnings', 'Setting Warnings');
   rslt += reportErrorsIn(tests, 'importWarnings', 'Import Warnings');
-  rslt += reportErrorsIn(tests, 'testWarnings', 'Warnings');
-  rslt += reportErrorsIn(tests, 'testErrors', 'Errors');
+  rslt += reportErrorsIn(runs, 'testWarnings', 'Warnings');
+  rslt += reportErrorsIn(runs, 'testErrors', 'Errors');
   return rslt;
 };
 
@@ -117,15 +122,20 @@ function reportErrorsIn(tests, property, title) {
   var errText = '';
   let count = 0;
   _.forEach(tests, function(testSpec) {
-    count = count + testSpec[property].length;
+    if (testSpec[property]) {
+      count = count + testSpec[property].length;
+    }
   });
   if (count > 0) {
     errText += '\n' + title + '\n';
     _.forEach(tests, function(testSpec) {
-      if (testSpec[property].length > 0) {
-        errText += '  ' + testSpec.sourcePath + ':' + testSpec.sourceName + '\n';
+      if (testSpec[property] && testSpec[property].length > 0) {
+        if (testSpec.id) errText += '  ' + testSpec.id + '\n';
         _.forEach(testSpec[property], function(x) {
           errText += '    ' + x + '\n';
+          if (x.command) {
+            errText += '      ' + JSON.stringify(x.command) + '\n';
+          }
         });
       }
     });
@@ -150,15 +160,14 @@ jsHarmonyTestScreenshot.prototype.generateMaster = async function (cb) {
 
   let review_file = this.reviewFilePath();
   if (fs.existsSync(review_file)) fs.unlinkSync(review_file);
-  HelperFS.rmdirRecursiveSync(master_dir);
-  HelperFS.createFolderRecursiveSync(master_dir);
+  this.recreateDirectory(master_dir);
   let tests = await this.loadTests();
-  await this.generateScreenshots(tests, master_dir);
+  let runs = await this.runTests(tests, master_dir);
 
-  var errText = this.reportErrors(tests);
+  var errText = this.reportErrors(tests, runs);
   if(errText) this.info(errText);
 
-  let images = this.prepareReview(tests);
+  let images = this.prepareReview(runs);
 
   if(!images.length) this.info('No screenshots generated');
   else if(!errText) this.info('Master screenshots generated');
@@ -180,12 +189,11 @@ jsHarmonyTestScreenshot.prototype.generateComparison = async function (cb) {
 
   let comparison_dir = this.screenshotsComparisonDir();
 
-  HelperFS.rmdirRecursiveSync(comparison_dir);
-  HelperFS.createFolderRecursiveSync(comparison_dir);
+  this.recreateDirectory(comparison_dir);
   let tests = await this.loadTests();
-  await this.generateScreenshots(tests, comparison_dir);
+  let runs = await this.runTests(tests, comparison_dir);
 
-  var errText = this.reportErrors(tests);
+  var errText = this.reportErrors(tests, runs);
   if(errText) this.info('Errors occurred running tests\n'+errText);
 
   if (cb) return cb(new Error(errText));
@@ -204,11 +212,10 @@ jsHarmonyTestScreenshot.prototype.getBrowser = async function () {
         resolve(p);
       });
     });
-    _this.browser = await puppeteer.launch(browserParams);
+    return await puppeteer.launch(browserParams);
   } catch (e) {
     _this.error(e);
   }
-  return _this.browser;
 };
 
 //Run the full "comparison" test
@@ -232,7 +239,7 @@ jsHarmonyTestScreenshot.prototype.runComparison = async function (cb) {
     if(ex && ex.code=='ENOENT'){ /* Do nothing */ }
     else throw ex;
   }
-  if (master_files.length <= 1) {
+  if (master_files.length < 1) {
     var errmsg = 'No master images found. Master images should be generated by running "jsharmony test master screenshots".';
     _this.error(errmsg);
     return cb(errmsg);
@@ -241,8 +248,7 @@ jsHarmonyTestScreenshot.prototype.runComparison = async function (cb) {
   let result_file = _this.resultFilePath();
   if (fs.existsSync(result_file)) fs.unlinkSync(result_file);
   let diff_dir = _this.screenshotsDiffDir();
-  HelperFS.rmdirRecursiveSync(diff_dir);
-  HelperFS.createFolderRecursiveSync(diff_dir);
+  this.recreateDirectory(diff_dir);
   var testError = null;
   try {
     await this.generateComparison();
@@ -250,121 +256,247 @@ jsHarmonyTestScreenshot.prototype.runComparison = async function (cb) {
   catch(ex){
     testError = ex;
   }
-  _this.compareImages(function (err, failImages) {
+  _this.compareImages(function (err, failImages, comparedImages) {
     if (err) {
       _this.error(err);
       return cb(err);
     }
     log.info('# fail: ' + failImages.length);
-    if(!failImages.length) _this.info('Screenshot tests completed successfully');
+    if(!failImages.length && comparedImages.length) _this.info('Screenshot tests completed successfully');
     _this.generateReport(failImages, testError, function() {
-      if (failImages.length > 0) return _this.sendErrorEmail(failImages, testError, cb);
-      return cb(null, failImages.length);
+      if (failImages.length > 0) return _this.sendErrorEmail(failImages, testError, function(emailErr) {cb(emailErr, failImages.length, comparedImages.length);});
+      return cb(null, failImages.length, comparedImages.length);
     });
   });
 };
 
-//Read the test_config_path folder, and parse the tests
+function sortTests(tests, testOnly) {
+  testOnly = testOnly || [];
+  var map = {};
+  var items = tests.map(function(test) {
+    var item = {
+      test: test,
+      id: test.id,
+      batch: test.batch || '',
+      requireDepth: test.require.length ? 1 : 0,
+      sortDepth: 0,
+      hasDependents: false,
+      allowedByFilter: (testOnly.length < 1 || testOnly.indexOf(test.id) != -1),
+    };
+    map[test.id] = item;
+    return item;
+  });
+
+  var changes;
+  var crazy = 0;
+  do {
+    changes = 0;
+    items.forEach(function(item) {
+      item.test.require.forEach(function(req) {
+        if (!map[req]) {
+          throw 'test "' + item.id + '" requires id "' + req + '" but it was not found in [' + _.keys(map).join(',') + ']';
+        }
+        map[req].hasDependents = true;
+        if (item.allowedByFilter && !map[req].allowedByFilter) {
+          changes = changes + 1;
+          map[req].allowedByFilter = true;
+        }
+        var depth = map[req].requireDepth + 1;
+        if (depth > item.requireDepth) {
+          changes = changes + 1;
+          item.requireDepth = depth;
+        }
+      });
+    });
+  } while (changes > 0 && crazy++ < items.length);
+
+  items = items.filter(function(item) {return item.allowedByFilter});
+
+  var batchDepth = {};
+  items.forEach(function(item) {
+    var batch = item.batch || '';
+    batchDepth[batch] = Math.max(batchDepth[batch] || 0, item.requireDepth);
+  });
+
+  items.forEach(function(item) {
+    if (item.hasDependents) {
+      item.sortDepth = item.requireDepth;
+    } else {
+      var batch = item.batch || '';
+      item.sortDepth = batchDepth[batch];
+    }
+  });
+
+  items.sort(function (a, b) {
+    if (a.sortDepth != b.sortDepth) return a.sortDepth - b.sortDepth;
+    if (a.batch && b.batch) {
+      if (a.batch < b.batch) return -1;
+      if (a.batch > b.batch) return 1;
+      return 0;
+    }
+    if (a.batch && !b.batch) return -1;
+    if (!a.batch && b.batch) return 1;
+    if (a.id < b.id) return -1;
+    if (a.id > b.id) return 1;
+    return 0;
+  });
+
+  return items.map(function(item) {return item.test;});
+}
+
+//Read the test_spec_path folder, and parse the tests
 //  Parameters:
 //    cb - The callback function to be called on completion
-//Returns an associative array of jsHarmonyTestScreenshotSpec:
+//Returns an associative array of jsHarmonyTestSpec:
 //{
-//  “SCREENSHOT_NAME”: jsHarmonyTestScreenshotSpec Object
+//  “SCREENSHOT_NAME”: jsHarmonyTestSpec Object
 //}
 //Set test.id to SCREENSHOT_NAME
 //Sort tests by test.batch, then by test.id.  Undefined batch should run last
 jsHarmonyTestScreenshot.prototype.loadTests = async function (cb) {
   let _this = this;
-  let tests = [];
+  let testChunks = [];
   // some application modules define moduledir, some don't.
   //  If they don't, we need to scan our local path
   //  If they do, we need to be careful not to load them twice
-  let local_path = path.resolve(_this.test_config_path);
-  await _this.loadTestsInFolder('', local_path, tests);
+  let local_path = path.resolve(_this.test_spec_path);
+  testChunks.push(await _this.loadTestsInFolder('', local_path, _this.settings));
 
   _.forEach(_this.settings.additionalTestSearchPaths, async function(extra) {
     if (extra.path) {
       let fpath = path.resolve(extra.path);
       if (fpath != local_path) {
-        await _this.loadTestsInFolder(extra.group, fpath, tests);
+        testChunks.push(await _this.loadTestsInFolder(extra.group, fpath, _this.settings));
       }
     }
   });
+
+  var tests = _.flatten(testChunks);
 
   if (tests.length < 1) {
     _this.warning('No tests defined. Place test JSON files in ' + local_path);
   }
 
-  tests.sort(function (a, b) {
-    if (a.batch && b.batch) return a.batch - b.batch;
-    if (!a.batch && b.batch) return 1;
-    if (a.batch && !b.batch) return -1;
-    return 0;
-  });
+  try {
+    tests = sortTests(tests, _this.settings.testOnly);
+  } catch (e) {
+    this.error(e);
+    if (cb) return cb(e, []);
+    else return [];
+  }
+
   if (cb) cb(null, tests);
   else return tests;
 };
 
-jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (moduleName, folderPath, tests) {
-  let _this = this;
-  let testOnly = this.settings.testOnly || [];
+async function exists(filepath) {
   try {
-    await new Promise((resolve,reject) => {
-      HelperFS.funcRecursive(folderPath, function(fullpath, fname, file_cb){
-        if (fname.startsWith('_')) return file_cb();
-        if (fname.substring(fname.length-5) !== '.json') return file_cb();
-        if (testOnly.length > 0 && testOnly.indexOf(fname) == -1) return file_cb();
-        let test_group = getTestsGroupName(moduleName,fname);
-        _this.parseTests(fullpath, test_group, tests, file_cb);
-      },undefined,undefined,function(err) {
-        if (err) return reject(err);
-        resolve();
-      });
-    });
-  } catch (e) {
-    _this.error(e);
+    await fs.promises.access(filepath);
+    return true;
+  } catch(e) {
+    return false;
   }
-  return tests;
+}
+
+var allowedSettings = {
+  server: '',
+  appbasepath: '',
+  datadir: '',
+  onLoad: [],
+  screenshot: {},
+  namespace: '',
+  testOnly: [],
+  require: [],
+  before: [],
+  after: [],
 };
 
-//Go through jsh.Modules paths, and for each folder, parse the tests in test_config_path
-//Prepend folder path to SCREENSHOT_NAME: screenshots/*FOLDER_PATH*/TEST.json
-jsHarmonyTestScreenshot.prototype.includeJsHarmonyModuleTests = async function() {
+jsHarmonyTestScreenshot.prototype.validateSettings = function(settings, sourcePath) {
   var _this = this;
-  _.forEach(_this.jsh.Modules, async function(module) {
-    if (module.Config.moduledir) {
-      let fpath = path.resolve(path.join(module.Config.moduledir, _this.test_config_path));
-      _this.settings.additionalTestSearchPaths.push({group: module.name, path: fpath});
+  _.forEach(_.keys(settings), function(key) {
+    if (!(key in allowedSettings)) {
+      _this.settingWarnings.push('Unknown property [' + key + '] in ' + sourcePath);
     }
   });
 };
 
-//Parse a string and return a jsHarmonyTestScreenshotSpec object
+jsHarmonyTestScreenshot.prototype.loadConfigInFolder = async function(folderPath, parentSettings) {
+  let _this = this;
+  let configPath = path.join(folderPath, '_config.json');
+  if (await exists(configPath)) {
+    return await new Promise((resolve,reject) => {
+      _this.jsh.ParseJSON(configPath, 'jsHarmonyTest', 'Config file ' + configPath, function(err, conf) {
+        if (err) reject(err);
+        _this.validateSettings(conf, configPath);
+        resolve(_.assign({},parentSettings,{namespace: null},conf));
+      });
+    });
+  } else {
+    return _.assign({},parentSettings,{namespace: null});
+  }
+};
+
+jsHarmonyTestScreenshot.prototype.loadTestsInFolder = async function (namespace, folderPath, parentSettings) {
+  let _this = this;
+  let testChunks = [];
+  try {
+    let settings = await _this.loadConfigInFolder(folderPath, parentSettings);
+    if (settings.namespace) namespace = settings.namespace;
+
+    var files = await fs.promises.readdir(folderPath);
+    await Promise.all(files.map(async function(fname) {
+      var fullpath = path.join(folderPath, fname);
+      var stats = await fs.promises.lstat(fullpath);
+      if (stats.isDirectory()) {
+        testChunks.push(await _this.loadTestsInFolder(prependNamespace(namespace, fname), fullpath, settings));
+      } else {
+        if (fname.startsWith('_')) return;
+        if (fname.substring(fname.length-5) !== '.json') return;
+        await new Promise((resolve,reject) => {
+          _this.parseTests(fullpath, namespace, settings, function(err, newTests) {
+            testChunks.push(newTests);
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+      }
+    }));
+    return _.flatten(testChunks);
+  } catch (e) {
+    _this.error(e);
+  }
+  return [];
+};
+
+//Parse a string and return a jsHarmonyTestSpec object
 //  Parameters:
 //    fpath: The full path to the config file
 //    test_group: test id prefix
-//    file_test_specs: array to append jsHarmonyTestScreenshotSpec objects
+//    settings: resolved _config.json values
 //    cb - The callback function to be called on completion
 //Use jsh.ParseJSON to convert the string to JSON
-jsHarmonyTestScreenshot.prototype.parseTests = function(fpath, test_group, file_test_specs, cb){
+jsHarmonyTestScreenshot.prototype.parseTests = function(fpath, namespace, settings, cb){
   let _this = this;
-  let screenshotOnly = this.settings.screenshotOnly || [];
   let warningCount = 0;
-  _this.jsh.ParseJSON(fpath, 'jsHarmonyTest', 'Screenshot Test ' + fpath, function(err, file_tests) {
+  let file_test_specs = [];
+  _this.jsh.ParseJSON(fpath, 'jsHarmonyTest', 'Screenshot Test ' + fpath, function(err, file_test) {
     if (err) return cb(err);
-    for (const file_test_id in file_tests) {
-      if (screenshotOnly.length > 0 && screenshotOnly.indexOf(file_test_id) == -1) continue;
-      const testSpec = jsHarmonyTestSpec.fromJSON(_this, test_group + '_' + sanitizePath(file_test_id), file_tests[file_test_id]);
-      testSpec.sourcePath = fpath;
-      testSpec.sourceName = file_test_id;
-      file_test_specs.push(testSpec);
-      warningCount = warningCount + testSpec.importWarnings.length;
+    const file_test_id = path.basename(fpath, '.json');
+    const obj = _.extend({}, file_test);
+    const testSpec = jsHarmonyTestSpec.fromJSON(file_test_id, fpath, settings, obj);
+    testSpec.id = prependNamespace(namespace, testSpec.id);
+    if (testSpec.require) {
+      testSpec.require = testSpec.require.map(function(id) {
+        return prependNamespace(namespace, id);
+      });
     }
+    file_test_specs.push(testSpec);
+    warningCount = warningCount + testSpec.importWarnings.length;
 
     if (warningCount > 0) {
-      _this.jsh.Log.warning('Warnings importing ' + fpath);
+      _this.warning('Warnings importing ' + fpath);
       _.forEach(file_test_specs, function(testSpec) {
-        _.forEach(testSpec.importWarnings, function(x) {_this.jsh.Log.warning(x);});
+        _.forEach(testSpec.importWarnings, function(x) {_this.warning(x);});
       });
     }
 
@@ -372,47 +504,54 @@ jsHarmonyTestScreenshot.prototype.parseTests = function(fpath, test_group, file_
   });
 };
 
-function getTestsGroupName(module, file_name) {
-  if (file_name.startsWith('_')) {
-    return null;
+function prependNamespace(namespace, next) {
+  if (next.startsWith('/')) {
+    return next.slice(1);
+  } else {
+    return _.join(_.compact([namespace, next]), '/');
   }
-  let name = module + '_' + file_name;
-  return sanitizePath(name);
 }
 
-function sanitizePath(string) {
-  return string.replace(/[^0-9A-Za-z]/g, '_');
-}
-
-//Generate screenshots of an array of tests, and save into a target folder
+//Run array of tests
 //  Parameters:
-//    tests: An associative array of jsHarmonyTestScreenshotSpec objects
-//    fpath: The full path to the target folder
+//    tests: An array of jsHarmonyTestSpec objects
+//    fpath: The full path to the screenshot folder
 //    cb: The callback function to be called on completion
-//The fpath should be the same as the SCREENSHOT_NAME
-jsHarmonyTestScreenshot.prototype.generateScreenshots = async function (tests, fpath, cb) {
-  await this.getBrowser();
+jsHarmonyTestScreenshot.prototype.runTests = async function (tests, fpath, cb) {
+  let browser = await this.getBrowser();
   let _this = this;
+  let runs = [];
   await new Promise((resolve,reject) => {
     async.eachLimit(tests, 1,
-      async function (screenshot_spec) {
-        if (_this.show_progress) _this.info(screenshot_spec.url);
-        var fname = screenshot_spec.generateFilename();
-        var screenshot_path = path.join(fpath, fname);
-        await screenshot_spec.generateScreenshot(_this.browser, _this.jsh, screenshot_path);
+      async function (test_spec) {
+        var run = new jsHarmonyTestRun(test_spec.server || _this.settings.server, _this.jsh, {
+          id: test_spec.id,
+          path: fpath,
+          screenshot: test_spec.screenshot,
+        });
+        run.id = test_spec.id;
+        await run.begin(browser);
+        await run.run(test_spec.before, _this.settings.variables);
+        await run.run(test_spec.commands, _this.settings.variables);
+        await run.run(test_spec.after, _this.settings.variables);
+        await run.end();
+        runs.push(run);
       },
       function (err) {
+        if (browser) {
+          browser.close();
+          browser = undefined;
+        }
         if (err) {
           _this.error(err);
-          reject(err);
+          return reject(err);
         }
-        if (_this.browser) _this.browser.close();
         resolve();
       });
   });
-  if (cb) return cb();
+  if (cb) return cb(null, runs);
+  return runs;
 };
-
 
 //Generate the "diff" image for any screenshots that are not exactly equal, into the "test_data_path/diff" folder
 //  Parameters:
@@ -433,18 +572,19 @@ jsHarmonyTestScreenshot.prototype.compareImages = function (cb) {
   let path_comparison = _this.screenshotsComparisonDir();
   let path_diff = _this.screenshotsDiffDir();
   let failImages = [];
+  let comparedImages = [];
   let files = [];
   let files_comp = [];
   try {
-    files = fs.readdirSync(path_master);
-    files_comp = fs.readdirSync(path_comparison);
+    files = _.without(fs.readdirSync(path_master), '.jsharmony-created');
+    files_comp = _.without(fs.readdirSync(path_comparison), '.jsharmony-created');
   }
   catch(ex){
     if(ex && ex.code=='ENOENT'){ /* Do nothing */ }
     else throw ex;
   }
   log.info('# of existing images to test ' + files.length);
-  if (files.length <= 1) {
+  if (files.length < 1) {
     log.error('No master images found. Master images should be generated by running "jsharmony test master screenshots".');
   }
   log.info('# of generated images to test ' + files_comp.length);
@@ -464,6 +604,7 @@ jsHarmonyTestScreenshot.prototype.compareImages = function (cb) {
         let master = path.join(path_master, imageName);
         let comparison = path.join(path_comparison, imageName);
         let diff = path.join(path_diff, imageName);
+        comparedImages.push({image_file: imageName});
     
         return _this.gmCompareImageFilesWrapper(master, comparison, 0)
           .then(function (isEqual) {
@@ -484,7 +625,7 @@ jsHarmonyTestScreenshot.prototype.compareImages = function (cb) {
             return each_cb();
           });
       }
-    }, function(err) {cb(err, failImages);});
+    }, function(err) {cb(err, failImages, comparedImages);});
 };
 
 jsHarmonyTestScreenshot.prototype.gmCompareImageFilesWrapper = function (srcpath, cmppath, options) {
@@ -524,7 +665,7 @@ jsHarmonyTestScreenshot.prototype.gmCompareImageFilesWrapper = function (srcpath
           img.img.extent(sizeout.width, sizeout.height);
           img.img.repage(0, 0, 0, 0);
           img.img.noProfile().write(path, function (err) {
-            if (err) jsh.Log.error(err);
+            if (err) jsh.Log.error(err, {ext: 'test'});
             if (err) return cb(err);
             getImage(path, cb);
           });
@@ -563,10 +704,11 @@ jsHarmonyTestScreenshot.prototype.gmCompareImageFilesWrapper = function (srcpath
   });
 };
 
-jsHarmonyTestScreenshot.prototype.prepareReview = function(tests) {
-  return _.map(tests, function(screenshot_spec) {
-    var fname = screenshot_spec.generateFilename();
-    return {image_file: fname};
+jsHarmonyTestScreenshot.prototype.prepareReview = function(runs) {
+  return _.flatMap(runs, function(run) {
+    return _.map(run.screenshots, function(screenshot) {
+      return {image_file: screenshot.filename};
+    });
   });
 };
 
@@ -639,8 +781,8 @@ jsHarmonyTestScreenshot.prototype.generateReview = function (images, errText, cb
 jsHarmonyTestScreenshot.prototype.sendErrorEmail = function (diff, errText, cb) {
   let _this = this;
   if (!cb) cb = function() {};
-  if(!_this.platform.Config.error_email) return cb(null, diff.length);
-  if(!_this.platform.SendEmail) return cb(null, diff.length);
+  if(!_this.platform.Config.error_email) return cb();
+  if(!_this.platform.SendEmail) return cb();
   if(_this.isSendingEmail){
     setTimeout(function(){ _this.sendErrorEmail(diff, errText, cb); }, 100);
     return;
@@ -656,8 +798,25 @@ jsHarmonyTestScreenshot.prototype.sendErrorEmail = function (diff, errText, cb) 
   _this.platform.SendEmail(mparams, function(){
     _this.info('Email sent');
     _this.isSendingEmail = false;
-    if(cb) cb(null, diff.length);
+    if(cb) cb();
   });
+};
+
+// cli can be run from arbitrary directories, and we are normalizing the use of .. in configurations. So be a bit paranoid about directory deletes.
+jsHarmonyTestScreenshot.prototype.recreateDirectory = function(targetPath) {
+  var tagFile = path.join(targetPath, '.jsharmony-created');
+  if(fs.existsSync(targetPath)) {
+    if(fs.existsSync(tagFile)) {
+      HelperFS.rmdirRecursiveSync(targetPath);
+      HelperFS.createFolderRecursiveSync(targetPath);
+      fs.writeFileSync(tagFile, '');
+    } else {
+      this.warning('not removing "' + targetPath + '" because it doesn\'t have a ".jsharmony-created" file in it. Please remove the directory yourself and rerun the command to create a clean test run');
+    }
+  } else {
+    HelperFS.createFolderRecursiveSync(targetPath);
+    fs.writeFileSync(tagFile, '');
+  }
 };
 
 exports = module.exports = jsHarmonyTestScreenshot;

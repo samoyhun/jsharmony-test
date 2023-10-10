@@ -22,20 +22,23 @@ var path = require('path');
 
 function jsHarmonyTestConfig(){
   this.moduledir = path.dirname(module.filename);
-  this.forDB = {};
 
   this.server = null; // leave blank so we can know whether to sub in the system port later
   this.loadTimeout = 30; // seconds
 
   this.testOnly = [];
-  this.screenshotOnly = [];
+  this.before = [];
+  this.after = [];
   this.additionalTestSearchPaths = [
     //{"group": "some-module", "path": "C:\wk\some-module\test\screenshots"},
   ],
   this.onLoad = null; // run the default command
   // [], // testing external server
   // [{ "exec": "shell", "path": "node", "params": ["app.js"], "cwd": "..." }],  // run the server before testing
-  this.base_screenshot = {
+
+  this.variables = {};
+
+  this.screenshot = {
     // "url": "",  // must be provided from config file should not be included here
     // "batch": 0,
     // "x": 0,
