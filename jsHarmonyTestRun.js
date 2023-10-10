@@ -172,7 +172,7 @@ function substituteVariables(variables, value) {
     pairs.push({name: name, value: variables[name]});
   }
 
-  pairs = _.sortBy(pairs, function(bind) {return -bind.name.length});
+  pairs = _.sortBy(pairs, function(bind) {return -bind.name.length;});
 
   for (var i in pairs) {
     var bind = pairs[i];

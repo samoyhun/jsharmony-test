@@ -310,7 +310,7 @@ function sortTests(tests, testOnly) {
     });
   } while (changes > 0 && crazy++ < items.length);
 
-  items = items.filter(function(item) {return item.allowedByFilter});
+  items = items.filter(function(item) {return item.allowedByFilter;});
 
   var batchDepth = {};
   items.forEach(function(item) {
