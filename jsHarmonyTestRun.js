@@ -371,6 +371,7 @@ jsHarmonyTestRun.prototype.runCommandSeries = async function (commands, page, va
     for (var i = 0;i < commands.length;i++) {
       var commandRslt = await _this.runCommand(commands[i], page, variables);
       if(commandRslt && commandRslt.errors && commandRslt.errors.length){ _this.jsh.Log.info('ERROR: ' + JSON.stringify(commandRslt.errors)); }
+      if(commandRslt && commandRslt.warnings && commandRslt.warnings.length){ _this.jsh.Log.info('WARNING: ' + JSON.stringify(commandRslt.warnings)); }
       results.push(commandRslt);
     }
   } catch (e) {

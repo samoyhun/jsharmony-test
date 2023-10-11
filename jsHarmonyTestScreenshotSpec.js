@@ -107,13 +107,24 @@ const addElement = function (elem) {
   $('html').append(_elem);
 };
 
+
+
 const excludeElem = async function(exl,page){
   var excludeRectangle = (exl['selector']) ? await page.evaluate(getSelectorRectangle, exl['selector']): exl;
   if(!excludeRectangle) {
     return ['Selector "'+exl['selector']+'" does not exist on the page'];
   }
-  let div = generateHoverDiv(excludeRectangle);
-  await page.evaluate(addElement, div);
+  await page.evaluate(addElement, generateHoverDiv(excludeRectangle));
+  return [];
+};
+
+const clearExcludes = async function(page){
+  await page.evaluate(function(){
+    var nextElem;
+    while(nextElem = document.querySelector('.jsHarmonyTestHoverDiv')){ //eslint-disable-line no-cond-assign
+      nextElem.parentNode.removeChild(nextElem);
+    }
+  });
   return [];
 };
 
@@ -122,7 +133,7 @@ const sleep = function(ms) {
 };
 
 const generateHoverDiv = function(dimensions){
-  let d = "<div style='background-color: black; position: absolute; width: {{width}}px; height: {{height}}px; top:{{top}}px; left: {{left}}px;'></div>";
+  let d = "<div class='jsHarmonyTestHoverDiv' style='background-color: black; position: absolute; width: {{width}}px; height: {{height}}px; top:{{top}}px; left: {{left}}px;'></div>";
   return d.replace('{{width}}',dimensions.width)
     .replace('{{height}}',dimensions.height)
     .replace('{{top}}',dimensions.y)
@@ -193,9 +204,10 @@ jsHarmonyTestScreenshotSpec.prototype.generateScreenshot = async function (page,
       cropRectangle = await page.evaluate(getSelectorRectangle, this.cropToSelector);
     }
     if (this.exclude.length){
-      let warnings = _.map(this.exclude,async function (exl) {
-        return await excludeElem(exl,page);
-      });
+      let warnings = [];
+      for(var i=0; i<this.exclude.length;i++){
+        warnings.concat(await excludeElem(this.exclude[i],page) || []);
+      }
       testWarnings = testWarnings.concat(warnings);
     }
     if (cropRectangle) this.postClip = cropRectangle;
@@ -227,6 +239,9 @@ jsHarmonyTestScreenshotSpec.prototype.generateScreenshot = async function (page,
     }
     await page.screenshot(screenshotParams);
     await this.processScreenshot(fpath, _this, jsh);
+    if (this.exclude.length){
+      await clearExcludes(page);
+    }
     this.testWarnings = testWarnings;
     this.testErrors = testErrors;
     if(cb) return cb();
