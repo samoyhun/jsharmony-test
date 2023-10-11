@@ -139,6 +139,7 @@ function getTextSelector(text) {
 
 // value getters
 async function getValue(valueGetter, page) {
+  if ((typeof(valueGetter) != 'object')) return { value: valueGetter };
   if (typeof(valueGetter.element) != 'string') return asError('value missing element', valueGetter);
   if (typeof(valueGetter.property) != 'string') return asError('value missing property', valueGetter);
   if (valueGetter.regex && typeof(valueGetter.regex) != 'string') return asError('value regex must be a string', valueGetter);
@@ -232,10 +233,12 @@ jsHarmonyTestRun.prototype.command_wait = async function(command, page, variable
   if (command.while_waiting && !_.isArray(command.while_waiting)) return asError('while_waiting must be an array', command);
   try {
     var waitCondition;
+    var waitOptions = {};
+    if(command.timeout) waitOptions.timeout = command.timeout;
     if (command.element && !textSelector) {
-      waitCondition = page.waitForSelector(command.element);
+      waitCondition = page.waitForSelector(command.element, waitOptions);
     } else if (textSelector) {
-      waitCondition = page.waitForFunction(textSelector, {polling: 'mutation'},
+      waitCondition = page.waitForFunction(textSelector, _.extend({polling: 'mutation'}, waitOptions),
         command.element || 'html', command.text);
     } else {
       return asError('wait arguments did not evaluate to a wait condition', command);
@@ -286,8 +289,8 @@ jsHarmonyTestRun.prototype.command_click = async function(command, page, variabl
 };
 
 jsHarmonyTestRun.prototype.command_set = async function(command, page, variables) {
-  if (typeof(command.variable) != 'string') return asError('set missing variable', command);
-  if (typeof(command.value) != 'object') return asError('set missing value', command);
+  if (typeof(command.variable) != 'string') return asError('"set" command missing "variable" property', command);
+  if (typeof(command.value) == 'undefined') return asError('"set" command missing "value" property', command);
   try {
     var got = await getValue(command.value, page);
     if (got.errors) return got;
@@ -366,7 +369,9 @@ jsHarmonyTestRun.prototype.runCommandSeries = async function (commands, page, va
 
   try {
     for (var i = 0;i < commands.length;i++) {
-      results.push(await _this.runCommand(commands[i], page, variables));
+      var commandRslt = await _this.runCommand(commands[i], page, variables);
+      if(commandRslt && commandRslt.errors && commandRslt.errors.length){ _this.jsh.Log.info('ERROR: ' + JSON.stringify(commandRslt.errors)); }
+      results.push(commandRslt);
     }
   } catch (e) {
     results.push({errors: [e]});
