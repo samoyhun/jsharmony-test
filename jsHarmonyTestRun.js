@@ -225,7 +225,7 @@ jsHarmonyTestRun.prototype.command_screenshot = async function(command, page, va
 };
 
 jsHarmonyTestRun.prototype.command_wait = async function(command, page, variables) {
-  if (command.element && typeof(command.element) != 'string') return asError('wait element must be a string', command);
+  if (command.element && typeof(command.element) != 'string' && typeof(command.element) != 'object') return asError('wait element must be a string or element selector', command);
   if (command.text && !(typeof(command.text) == 'string' || typeof(command.text) == 'object')) return asError('wait text must be a string or text selector', command);
   if (!command.element && !command.text) return asError('wait command must have element and/or text to wait for', command);
   var textSelector = getTextSelector(command.text);
@@ -236,7 +236,13 @@ jsHarmonyTestRun.prototype.command_wait = async function(command, page, variable
     var waitOptions = {};
     if(command.timeout) waitOptions.timeout = command.timeout;
     if (command.element && !textSelector) {
-      waitCondition = page.waitForSelector(command.element, waitOptions);
+      var selector = (command.element.selector) ? command.element.selector : command.element;
+      var options = {};
+      
+      if (command.element.visible) options = {visible: true, hidden: false}
+      else options = {visible: false, hidden: true}
+
+      waitCondition = page.waitForSelector(selector, _.extend(options, waitOptions));
     } else if (textSelector) {
       waitCondition = page.waitForFunction(textSelector, _.extend({polling: 'mutation'}, waitOptions),
         command.element || 'html', command.text);
