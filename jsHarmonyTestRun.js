@@ -239,8 +239,10 @@ jsHarmonyTestRun.prototype.command_wait = async function(command, page, variable
       var selector = (command.element.selector) ? command.element.selector : command.element;
       var options = {};
 
-      if (command.element.visible) _.extend({visible: true, hidden: false}, options);
-      else options = _.extend({visible: false, hidden: true}, options);
+      if (_.has(command.element, 'visible')) {
+        if (command.element.visible == true) _.extend(options, {visible: true, hidden: false});
+        else if (command.element.visible == false) options = _.extend(options, {visible: false, hidden: true});
+      }
 
       waitCondition = page.waitForSelector(selector, _.extend(options, waitOptions));
     } else if (textSelector) {
