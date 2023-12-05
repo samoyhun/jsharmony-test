@@ -11,7 +11,7 @@ npm install jsharmony-test --save
 ## Setup
 1. Create a folder in the project root named "test"
 2. Create a _config.json file in the "test" folder with the following content
-```json
+```javascript
 {
   "server": "<your-server>",
   "appbasepath": "<path-to-test>", //Defaults to CWD
@@ -30,7 +30,7 @@ npm install jsharmony-test --save
 }
 ```
 3. Create a .json file for each test
-```json
+```javascript
 {
   "id": "TEST_ID",
   "title": "Test Name",
@@ -61,24 +61,24 @@ jsharmony test screenshots test\handheld
 
 ## Commands
 #### Basic Command
-```json
+```javascript
 { "exec": "...", "timeout": 10000 }
 ```
 #### Navigate
-```json
+```javascript
 { "exec": "navigate", "url": "https://localhost:3000" }
 ```
 * The url property can use variables, e.g., "https://localhost:3000/App?token=@TOKEN"
 
 #### Screenshot
-```json
+```javascript
 { "exec": "screenshot", "id": "login_start" }
 ```
 * Optional Parameters:
   * Any jsHarmony Test Screenshot parameters, e.g., "width": 1500
 
 #### Wait
-```json
+```javascript
 { "exec": "wait" }
 
 //Example usage:
@@ -92,7 +92,7 @@ jsharmony test screenshots test\handheld
   * "while_waiting": [ COMMAND, COMMAND ]  // Execute commands after initiating wait
 
 #### Input
-```json
+```javascript
 { "exec": "input", "element": "selector", "value": "John Doe" }
 ```
 * Value can also contain:
@@ -109,20 +109,20 @@ jsharmony test screenshots test\handheld
   * or contain additional characters, such as "M@VARIABLE\n"
 
 #### Click
-```json
+```javascript
 { "exec": "click", "element": "selector" }
 ```
 * Optional Parameters:
   * "button": "left", "right", "middle"
 
 #### Set
-```json
+```javascript
 { "exec": "set", "variable": "VARIABLE", "value": "VALUE_GETTER" }
 ```
 * Store variables in jsHarmonyTestConfig.variables
 
 #### JS
-```json
+```javascript
  { "exec": "js", "js": "return new Promise(function(resolve,reject){ resolve(); });" }
 ``` 
 * Parameters passed to the JS function:
@@ -131,7 +131,7 @@ jsharmony test screenshots test\handheld
   * callback - Callback. If a Promise is returned by the JS, wait for the Promise to resolve
 
 #### Assert
-```json
+```javascript
 { "exec": "assert", "element": "selector", "value": "TEXT_SELECTOR" }
 ```
 * Optional Parameters:
@@ -141,7 +141,7 @@ jsharmony test screenshots test\handheld
 
 #### TEXT_SELECTOR
 * "text"  // Same as { "contains": "text" }
-```json
+```javascript
   { "equals": "text" }       //Text string must be exact match
   { "not_equals": "text" }   //Text string must not match
   { "contains": "text" }     //Text string contains target text
@@ -158,7 +158,7 @@ jsharmony test screenshots test\handheld
 
 #### ELEMENT_SELECTOR
 * "SELECTOR"  // Same as { "selector": "SELECTOR" }
-```json
+```javascript
   { "selector": "SELECTOR" }  //CSS Selector for an element
   { "selector": "SELECTOR", "visible": true }  //Require element to be visible
 
@@ -167,7 +167,7 @@ jsharmony test screenshots test\handheld
 ```
 
 #### VALUE_GETTER
-```json
+```javascript
   { "element": “selector”, "property": "text"  }
 
   //Example usage:
@@ -182,7 +182,7 @@ jsharmony test screenshots test\handheld
 ## Examples
 
 #### Configuration for testing a login page
-```json
+```javascript
 {
   "id": "login",
   "title": "Login",
@@ -192,7 +192,8 @@ jsharmony test screenshots test\handheld
     { "exec": "set", "variable": "APPTOKEN", "value": { "element": ".loginLink", "property": "href", "regex": "app\\_token=(.*)"  } }, 
     
     { "exec": "navigate", "url": "/login?app_token=@APPTOKEN" },
-    { "exec": "wait", "text": { "contains": "Please enter username" } }, // Waits for text to render before continuing
+    // Waits for text to render before continuing
+    { "exec": "wait", "text": { "contains": "Please enter username" } },
     { "exec": "screenshot", "id": "Login" },
 
     { "exec": "input", "element": ".username", "value": "testUser" },
